@@ -1,0 +1,15 @@
+includes:
+	- vendor/szepeviktor/phpstan-wordpress/extension.neon
+	- vendor/phpstan/phpstan-deprecation-rules/rules.neon
+
+parameters:
+	paths:
+		- src/
+	reportUnmatchedIgnoredErrors: false
+	level: 10
+	ignoreErrors:
+		# Uses func_get_args()
+		- '#^Function apply_filters invoked with [34567] parameters, 2 required\.$#'
+		- '#^Function remove_filter invoked with [34567] parameters, 2-3 required\.$#'
+		# Remove issues that come from using array as a type rather than string[] or array<string> etc.
+		- '#no value type specified in iterable type array#'
