@@ -1,0 +1,74 @@
+name: PHP Checks
+
+on:
+  push:
+    branches: ["trunk", "develop"]
+  pull_request:
+    branches: ["trunk", "develop"]
+
+permissions:
+  contents: read
+
+env:
+  PHP_VERSION: ${{ env.PHP_EXTENSIONS }}
+
+jobs:
+  lint:
+    name: Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup PHP with composer v2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_EXTENSIONS }}
+          tools: composer:v2
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Run PHPCS
+        run: composer run lint
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup PHP with composer v2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_EXTENSIONS }}
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest
+
+      - name: Run PHPStan
+        run: composer run static
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup PHP with composer v2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_EXTENSIONS }}
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest
+
+      - name: Run PHPUnit
+        run: composer run test
