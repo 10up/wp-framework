@@ -1,0 +1,46 @@
+{
+    "name": "10up/wp-framework",
+    "type": "library",
+    "license": "GPLv2",
+    "autoload": {
+        "psr-4": {
+            "TenupFramework\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TenupFrameworkTests\\": "tests/",
+            "TenupFrameworkTestClasses\\": "fixtures/classes/"
+        }
+    },
+    "require": {
+        "php": ">=8.3",
+        "spatie/php-structure-discoverer": "^2.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5",
+        "yoast/phpunit-polyfills": "^2.0",
+        "brain/monkey": "^2.6",
+        "szepeviktor/phpstan-wordpress": "^2.0",
+        "php-stubs/wp-cli-stubs": "^2.11",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "10up/phpcs-composer": "^3.0",
+        "phpcompatibility/php-compatibility": "dev-develop as 9.99.99",
+        "phpunit/php-code-coverage": "^9.2",
+        "slevomat/coding-standard": "^8.15"
+    },
+    "scripts": {
+        "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit",
+        "lint": "phpcs .",
+        "lint-fix": "phpcbf .",
+        "static": [
+            "Composer\\Config::disableProcessTimeout",
+            "phpstan --memory-limit=1G"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}
