@@ -1,7 +1,8 @@
 {
     "name": "10up/wp-framework",
+    "description": "A framework for building WordPress themes and plugins.",
     "type": "library",
-    "license": "GPLv2",
+    "license": "GPL-2.0-or-later",
     "autoload": {
         "psr-4": {
             "TenupFramework\\": "src/"
