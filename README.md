@@ -1,3 +1,5 @@
+__This software is currently BETA.__
+
 # WP Framework
 
 WP Framework is a PHP package designed to simplify the development of WordPress themes and plugins by centralizing shared functionality. It provides a set of foundational tools, abstract classes, and reusable components to handle common challenges, enabling developers to focus on project-specific logic while ensuring consistency across projects.
