@@ -3,8 +3,8 @@
 	<description>10up PHPCS extended.</description>
 
 	<!-- Scan these directories -->
-	<file>./src/*</file>
-	<file>./tests/*</file>
+	<file>src</file>
+	<file>tests</file>
 
 	<!-- Use the 10up rulset -->
 	<rule ref="10up-Default" />
