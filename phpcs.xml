@@ -3,6 +3,7 @@
 	<description>10up PHPCS extended.</description>
 
 	<!-- Scan these directories -->
+	<file>fixtures</file>
 	<file>src</file>
 	<file>tests</file>
 
