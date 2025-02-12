@@ -158,7 +158,7 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 		$plural_label   = $this->get_plural_label();
 		$singular_label = $this->get_singular_label();
 
-		// phpcs:disable
+		// phpcs:disable WordPress.WP.I18n.MissingTranslatorsComment -- ignoring template strings without translators placeholder since this is dynamic
 		$labels = [
 			'name'                       => $plural_label, // Already translated via get_plural_label().
 			'singular_name'              => $singular_label, // Already translated via get_singular_label().
@@ -176,7 +176,7 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 			'not_found_in_trash'         => sprintf( __( 'No %s found in Trash.', 'tenup-plugin' ), strtolower( $plural_label ) ),
 			'view_item'                  => sprintf( __( 'View %s', 'tenup-plugin' ), $singular_label ),
 		];
-		// phpcs:enable
+		// phpcs:enable WordPress.WP.I18n.MissingTranslatorsComment
 
 		return $labels;
 	}
