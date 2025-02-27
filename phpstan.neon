@@ -5,6 +5,7 @@ includes:
 parameters:
 	paths:
 		- src/
+		- fixtures/classes/
 	reportUnmatchedIgnoredErrors: false
 	level: 10
 	ignoreErrors:
