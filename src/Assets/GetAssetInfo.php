@@ -5,9 +5,11 @@
  * @package TenUpPlugin\Traits
  */
 
-declare(strict_types = 1);
+declare( strict_types = 1 );
 
 namespace TenupFramework\Assets;
+
+use RuntimeException;
 
 /**
  * Trait GetAssetInfo
@@ -19,16 +21,16 @@ trait GetAssetInfo {
 	/**
 	 * Path to the dist directory
 	 *
-	 * @var string
+	 * @var ?string
 	 */
-	public $dist_path;
+	public $dist_path = null;
 
 	/**
 	 * Fallback version to use if asset file is not found
 	 *
-	 * @var string
+	 * @var ?string
 	 */
-	public $fallback_version;
+	public $fallback_version = null;
 
 	/**
 	 * Setup asset variables
@@ -49,9 +51,16 @@ trait GetAssetInfo {
 	 * @param string  $slug      Asset slug as defined in build/webpack configuration
 	 * @param ?string $attribute Optional attribute to get. Can be version or dependencies
 	 *
-	 * @return string|($attribute is null ? array{version: string, dependencies: array<string>} : $attribute is 'dependencies' ? array<string> : string)
+	 * @throws RuntimeException If asset variables are not set
+	 *
+	 * @return string|($attribute is null ? array{version: string, dependencies: array<string>} : $attribute is'dependencies' ? array<string> : string)
 	 */
 	public function get_asset_info( string $slug, ?string $attribute = null ) {
+
+		if ( is_null( $this->dist_path ) || is_null( $this->fallback_version ) ) {
+			throw new RuntimeException( 'Asset variables not set. Please run setup_asset_vars() before calling get_asset_info().' );
+		}
+
 		if ( file_exists( $this->dist_path . 'js/' . $slug . '.asset.php' ) ) {
 			$asset = require $this->dist_path . 'js/' . $slug . '.asset.php';
 		} elseif ( file_exists( $this->dist_path . 'css/' . $slug . '.asset.php' ) ) {

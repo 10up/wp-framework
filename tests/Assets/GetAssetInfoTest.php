@@ -112,4 +112,22 @@ class GetAssetInfoTest extends TestCase {
 
 		$this->assertEquals( $vars['dependencies'], $version );
 	}
+
+	/**
+	 * Test get_asset_info throws and exception when get_asset_info is called without setting up the asset vars.
+	 *
+	 * @return void
+	 */
+	public function test_get_asset_info_throws_exception_when_called_without_setting_up_asset_vars() {
+		$asset_info = new class() {
+			use GetAssetInfo;
+		};
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'Asset variables not set. Please run setup_asset_vars() before calling get_asset_info().' );
+
+		$asset_info->get_asset_info(
+			slug: 'test-script'
+		);
+	}
 }
