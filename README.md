@@ -8,7 +8,7 @@ WP Framework is a PHP package designed to simplify the development of WordPress 
 - **Shared Functionality:** Provides commonly used abstract classes and utilities to reduce boilerplate code in WordPress projects.
 - **Extendability:** Built for easy extension. Engineers can subclass or override functionality as needed to tailor it to their projects.
 - **Centralized Updates:** Simplifies rolling out updates and new features across projects using this framework.
-- **Modern Standards:** Compatible with PHP 8.3+ and adheres to modern development practices.
+- **Modern Standards:** Compatible with PHP 8.2+ and adheres to modern development practices.
 
 ## Installation
 
@@ -25,7 +25,7 @@ composer require 10up/wp-framework
 The framework follows the PSR-4 autoloading standard, making it easy to include and extend classes in your project.
 
 It also builds upon the module autoloader that was previously used in the WP-Scaffold. The only difference is that now,
-instead of extending the `Module` class, you should implement the `ModuleInterface` interface. To help with this, we 
+instead of extending the `Module` class, you should implement the `ModuleInterface` interface. To help with this, we
 have also provided a `Module` trait that gives you a basic implementation of the interface.
 
 ```php
