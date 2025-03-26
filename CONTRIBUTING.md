@@ -22,6 +22,17 @@ Pull requests represent a proposed solution to a specified problem.  They should
 
 For more on how 10up writes and manages code, check out our [10up Engineering Best Practices](https://10up.github.io/Engineering-Best-Practices/).
 
+## Getting started
+
+Contributions are welcome (thank you!), to get started:
+
+1. Clone the repository.
+2. Install dependencies:
+
+     ```bash
+     composer install
+    ```
+
 ## Workflow
 
 The `develop` branch is the development branch which means it contains the next version to be released. `trunk` contains the latest released version.  Always work on the `develop` branch and open up PRs against `develop`.

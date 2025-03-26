@@ -1,8 +1,23 @@
 {
     "name": "10up/wp-framework",
-    "description": "A framework for building WordPress themes and plugins.",
+    "description": "A PHP package designed to simplify the development of WordPress themes and plugins by centralizing shared functionality.",
     "type": "library",
+    "homepage": "https://github.com/10up/wp-framework",
     "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Daryll Doyle",
+            "email": "daryll.doyle@10up.com",
+            "homepage": "https://enshrined.co.uk/",
+            "role": "Developer"
+        },
+        {
+            "name": "10up",
+            "email": "opensource@10up.com",
+            "homepage": "https://10up.com",
+            "role": "Developer"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "TenupFramework\\": "src/"

@@ -1,6 +1,6 @@
 # WP Framework
 
-[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![GPL-2.0-or-later License](https://img.shields.io/github/license/10up/wp-framework.svg)](https://github.com/10up/wp-framework/blob/develop/LICENSE.md)
+[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![GPL-2.0-or-later License](https://img.shields.io/github/license/10up/wp-framework.svg)](https://github.com/10up/wp-framework/blob/develop/LICENSE.md) [![PHP Checks](https://github.com/10up/wp-framework/actions/workflows/php.yml/badge.svg)](https://github.com/10up/wp-framework/actions/workflows/php.yml)
 
 > WP Framework is a PHP package designed to simplify the development of WordPress themes and plugins by centralizing shared functionality. It provides a set of foundational tools, abstract classes, and reusable components to handle common challenges, enabling developers to focus on project-specific logic while ensuring consistency across projects.
 
@@ -50,7 +50,7 @@ class YourModule implements ModuleInterface {
 
 ### Helpful Abstract Classes
 
-**Custom Post Types**
+#### Custom Post Types
 
 ```php
 namespace TenUpPlugin\Posts;
@@ -77,7 +77,7 @@ class Demo extends AbstractPostType {
 }
 ```
 
-**Core Post Types**
+#### Core Post Types
 
 ```php
 namespace TenUpPlugin\Posts;
@@ -100,7 +100,7 @@ class Post extends AbstractCorePostType {
 }
 ```
 
-**Taxonomies**
+#### Taxonomies
 
 ```php
 namespace TenUpPlugin\Taxonomies;
@@ -127,19 +127,18 @@ class Demo extends AbstractTaxonomy {
 }
 ```
 
-## Contributions
+## Changelog
 
-Contributions to WP Framework are welcome! To get started:
-1. Clone the repository.
-2. Install dependencies:
-     ```bash
-     composer install
-    ```
+A complete listing of all notable changes to Distributor are documented in [CHANGELOG.md](https://github.com/10up/wp-framework/blob/develop/CHANGELOG.md).
 
-## Support
+## Contributing
 
-If you have any questions or encounter issues, please create an issue in the GitHub repository.
+Please read [CODE_OF_CONDUCT.md](https://github.com/10up/wp-framework/blob/develop/CODE_OF_CONDUCT.md) for details on our code of conduct and [CONTRIBUTING.md](https://github.com/10up/wp-framework/blob/develop/CONTRIBUTING.md) for details on the process for submitting pull requests to us.
 
 ## Support Level
 
 **Beta:** This project is quite new and we're not sure what our ongoing support level for this will be. Bug reports, feature requests, questions, and pull requests are welcome. If you like this project please let us know, but be cautious using this in a Production environment!
+
+## Like what you see?
+
+<a href="http://10up.com/contact/"><img src="https://10up.com/uploads/2016/10/10up-Github-Banner.png" width="850"></a>
