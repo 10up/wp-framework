@@ -1,10 +1,11 @@
-__This software is currently BETA.__
-
 # WP Framework
 
-WP Framework is a PHP package designed to simplify the development of WordPress themes and plugins by centralizing shared functionality. It provides a set of foundational tools, abstract classes, and reusable components to handle common challenges, enabling developers to focus on project-specific logic while ensuring consistency across projects.
+[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level)
+
+> WP Framework is a PHP package designed to simplify the development of WordPress themes and plugins by centralizing shared functionality. It provides a set of foundational tools, abstract classes, and reusable components to handle common challenges, enabling developers to focus on project-specific logic while ensuring consistency across projects.
 
 ## Key Features
+
 - **Shared Functionality:** Provides commonly used abstract classes and utilities to reduce boilerplate code in WordPress projects.
 - **Extendability:** Built for easy extension. Engineers can subclass or override functionality as needed to tailor it to their projects.
 - **Centralized Updates:** Simplifies rolling out updates and new features across projects using this framework.
@@ -126,7 +127,6 @@ class Demo extends AbstractTaxonomy {
 }
 ```
 
-
 ## Contributions
 
 Contributions to WP Framework are welcome! To get started:
@@ -136,7 +136,6 @@ Contributions to WP Framework are welcome! To get started:
      composer install
     ```
 
-
 ## License
 
 WP Framework is open-source software licensed under the GPL-2.0-or-later.
@@ -144,3 +143,7 @@ WP Framework is open-source software licensed under the GPL-2.0-or-later.
 ## Support
 
 If you have any questions or encounter issues, please create an issue in the GitHub repository.
+
+## Support Level
+
+**Beta:** This project is quite new and we're not sure what our ongoing support level for this will be. Bug reports, feature requests, questions, and pull requests are welcome. If you like this project please let us know, but be cautious using this in a Production environment!
