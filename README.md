@@ -1,6 +1,6 @@
 # WP Framework
 
-[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level)
+[![Support Level](https://img.shields.io/badge/support-beta-blueviolet.svg)](#support-level) [![GPL-2.0-or-later License](https://img.shields.io/github/license/10up/wp-framework.svg)](https://github.com/10up/wp-framework/blob/develop/LICENSE.md)
 
 > WP Framework is a PHP package designed to simplify the development of WordPress themes and plugins by centralizing shared functionality. It provides a set of foundational tools, abstract classes, and reusable components to handle common challenges, enabling developers to focus on project-specific logic while ensuring consistency across projects.
 
@@ -135,10 +135,6 @@ Contributions to WP Framework are welcome! To get started:
      ```bash
      composer install
     ```
-
-## License
-
-WP Framework is open-source software licensed under the GPL-2.0-or-later.
 
 ## Support
 
