@@ -135,6 +135,11 @@ class ModuleInitialization {
 				continue;
 			}
 
+			// Check if the class implements ModuleInterface before instantiating it
+			if ( ! $reflection_class->implementsInterface( 'TenupFramework\ModuleInterface' ) ) {
+				continue;
+			}
+
 			// Initialize the class.
 			// phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			/** @var ModuleInterface $instantiated_class */
