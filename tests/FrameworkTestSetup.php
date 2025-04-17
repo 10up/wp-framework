@@ -20,6 +20,8 @@ use function Brain\Monkey\Functions\stubTranslationFunctions;
 /**
  * Trait FrameworkTestSetup
  *
+ * @runTestsInSeparateProcesses
+ *
  * @package TenupFramework
  */
 trait FrameworkTestSetup {
