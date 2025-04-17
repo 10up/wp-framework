@@ -5,6 +5,8 @@
  * @package TenupFrameworkTestClasses\Standalone
  */
 
+declare(strict_types = 1);
+
 namespace TenupFrameworkTestClasses\Standalone;
 
 /**
@@ -13,7 +15,7 @@ namespace TenupFrameworkTestClasses\Standalone;
  * @package TenupFrameworkTestClasses\Standalone
  */
 class Standalone {
- 	/**
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
