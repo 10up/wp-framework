@@ -135,16 +135,17 @@ class ModuleInitialization {
 				continue;
 			}
 
+			// Check if the class implements ModuleInterface before instantiating it
+			if ( ! $reflection_class->implementsInterface( 'TenupFramework\ModuleInterface' ) ) {
+				continue;
+			}
+
 			// Initialize the class.
 			// phpcs:ignore Generic.Commenting.DocComment.MissingShort
 			/** @var ModuleInterface $instantiated_class */
 			$instantiated_class = new $class();
 
-			// Make sure the class is a subclass of Module, so we can initialize it.
-			if ( ! in_array( 'TenupFramework\Module', $this->class_uses_recursive( $instantiated_class ), true ) ) {
-				unset( $instantiated_class );
-				continue;
-			}
+			do_action( 'tenup_framework_module_init__' . $slug, $instantiated_class );
 
 			// Assign the classes into the order they should be initialized.
 			$load_class_order[ intval( $instantiated_class->load_order() ) ][] = [
@@ -171,42 +172,6 @@ class ModuleInitialization {
 				}
 			}
 		}
-	}
-
-	/**
-	 * Returns all traits used by a class and its traits.
-	 *
-	 * @param  object|string $class_to_search The class to check for traits.
-	 * @return array<string>
-	 */
-	protected function class_uses_recursive( $class_to_search ) {
-		if ( is_object( $class_to_search ) ) {
-			$class_to_search = get_class( $class_to_search );
-		}
-
-		$results = [];
-
-		foreach ( array_reverse( class_parents( $class_to_search ) ? class_parents( $class_to_search ) : [] ) + [ $class_to_search => $class_to_search ] as $class ) {
-			$results = array_merge( $results, $this->trait_uses_recursive( $class ) );
-		}
-
-		return array_unique( $results );
-	}
-
-	/**
-	 * Returns all traits used by a trait and its traits.
-	 *
-	 * @param  object|string $trait_to_search The trait to check for traits.
-	 * @return array<string>
-	 */
-	protected function trait_uses_recursive( $trait_to_search ) {
-		$traits_to_search = class_uses( $trait_to_search ) ? class_uses( $trait_to_search ) : [];
-
-		foreach ( $traits_to_search as $trait ) {
-			$traits_to_search = array_merge( $traits_to_search, $this->trait_uses_recursive( $trait ) );
-		}
-
-		return (array) $traits_to_search;
 	}
 
 	/**
