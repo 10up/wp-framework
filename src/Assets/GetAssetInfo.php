@@ -65,6 +65,8 @@ trait GetAssetInfo {
 			$asset = require $this->dist_path . 'js/' . $slug . '.asset.php';
 		} elseif ( file_exists( $this->dist_path . 'css/' . $slug . '.asset.php' ) ) {
 			$asset = require $this->dist_path . 'css/' . $slug . '.asset.php';
+		} elseif ( file_exists( $this->dist_path . 'blocks/' . $slug . '.asset.php' ) ) {
+			$asset = require $this->dist_path . 'blocks/' . $slug . '.asset.php';
 		} else {
 			$asset = [
 				'version'      => $this->fallback_version,
