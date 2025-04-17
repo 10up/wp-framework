@@ -121,4 +121,17 @@ class ModuleInitializationTest extends TestCase {
 		$module = \TenupFramework\ModuleInitialization::get_module( 'TenupFrameworkTestClasses\DoesntExist' );
 		$this->assertFalse( $module );
 	}
+
+	/**
+	 * Test that only classes implementing ModuleInterface are initialized.
+	 *
+	 * @return void
+	 */
+	public function test_only_classes_implementing_module_interface_are_initialized() {
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$module_init->init_classes( dirname( __DIR__, 1 ) . '/fixtures/classes' );
+
+		$this->assertTrue( did_action( 'tenup_framework_module_init__tenupframeworktestclasses-posttypes-demo' ) > 0, 'Demo was not initialized.' );
+		$this->assertFalse( did_action( 'tenup_framework_module_init__tenupframeworktestclasses-standalone-standalone' ) > 0, 'Standalone class was initialized.' );
+	}
 }

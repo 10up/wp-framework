@@ -145,6 +145,7 @@ class ModuleInitialization {
 			/** @var ModuleInterface $instantiated_class */
 			$instantiated_class = new $class();
 
+			do_action( 'tenup_framework_module_init__' . $slug, $instantiated_class );
 
 			// Assign the classes into the order they should be initialized.
 			$load_class_order[ intval( $instantiated_class->load_order() ) ][] = [
