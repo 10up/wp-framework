@@ -134,4 +134,17 @@ class ModuleInitializationTest extends TestCase {
 		$this->assertTrue( did_action( 'tenup_framework_module_init__tenupframeworktestclasses-posttypes-demo' ) > 0, 'Demo was not initialized.' );
 		$this->assertFalse( did_action( 'tenup_framework_module_init__tenupframeworktestclasses-standalone-standalone' ) > 0, 'Standalone class was initialized.' );
 	}
+
+	/**
+	 * Validate if the classes are fully loadable.
+	 *
+	 * @return void
+	 */
+	public function testIsClassFullyLoadable() {
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+
+		$this->assertInstanceOf( 'ReflectionClass', $module_init->get_fully_loadable_class( '\TenupFrameworkTestClasses\Loadable\BaseClass' ) );
+		$this->assertInstanceOf( 'ReflectionClass', $module_init->get_fully_loadable_class( '\TenupFrameworkTestClasses\Loadable\ChildClass' ) );
+		$this->assertFalse( $module_init->get_fully_loadable_class( '\TenupFrameworkTestClasses\Loadable\InvalidChildClass' ) );
+	}
 }
