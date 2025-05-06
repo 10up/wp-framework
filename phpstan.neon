@@ -6,6 +6,8 @@ parameters:
 	paths:
 		- src/
 		- fixtures/classes/
+	excludePaths:
+		- fixtures/classes/Loadable/InvalidChildClass.php
 	reportUnmatchedIgnoredErrors: false
 	level: 10
 	ignoreErrors:
