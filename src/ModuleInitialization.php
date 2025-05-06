@@ -125,9 +125,11 @@ class ModuleInitialization {
 				continue;
 			}
 
-			// Create a new reflection of the class.
-			// @phpstan-ignore argument.type
-			$reflection_class = new ReflectionClass( $class );
+			$reflection_class = $this->get_fully_loadable_class( $class );
+
+			if ( ! $reflection_class ) {
+				continue;
+			}
 
 			// Using reflection, check if the class can be initialized.
 			// If not, skip.
@@ -171,6 +173,26 @@ class ModuleInitialization {
 					$this->classes[ $slug ] = $class;
 				}
 			}
+		}
+	}
+
+	/**
+	 * Retrieves a fully loadable class using reflection.
+	 *
+	 * @param string $class_name The name of the class to load.
+	 *
+	 * @return false|ReflectionClass Returns a ReflectionClass instance if the class is loadable, or false if it is not.
+	 *
+	 * @phpstan-ignore missingType.generics
+	 */
+	public function get_fully_loadable_class( string $class_name ): false|ReflectionClass {
+		try {
+			// Create a new reflection of the class.
+			// @phpstan-ignore argument.type
+			return new ReflectionClass( $class_name );
+		} catch ( \Throwable $e ) {
+			// This includes ReflectionException, Error due to missing parent, etc.
+			return false;
 		}
 	}
 
