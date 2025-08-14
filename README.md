@@ -120,10 +120,6 @@ class Demo extends AbstractTaxonomy {
     public function get_plural_label() {
         return esc_html__( 'Categories', 'tenup-plugin' );
     }
-
-    public function get_post_types() {
-        return [ 'tenup-demo' ];
-    }
 }
 ```
 
