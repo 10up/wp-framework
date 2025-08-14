@@ -1,6 +1,6 @@
 <?php
 /**
- * Auto-initialize all Module based clases in the plugin.
+ * Auto-initialize all Module based classes in the plugin.
  *
  * @package TenupFramework
  */
