@@ -15,7 +15,7 @@ namespace TenupFramework;
 trait Module {
 
 	/**
-	 * Used to alter the order in which clases are initialized.
+	 * Used to alter the order in which classes are initialized.
 	 *
 	 * Lower number will be initialized first.
 	 *
