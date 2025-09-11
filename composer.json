@@ -43,7 +43,9 @@
         "10up/phpcs-composer": "^3.0",
         "phpcompatibility/php-compatibility": "dev-develop as 9.99.99",
         "phpunit/php-code-coverage": "^9.2",
-        "slevomat/coding-standard": "^8.15"
+        "slevomat/coding-standard": "^8.15",
+        "rector/rector": "^2.0",
+        "tomasvotruba/type-coverage": "^2.0"
     },
     "scripts": {
         "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit",
@@ -52,6 +54,10 @@
         "static": [
             "Composer\\Config::disableProcessTimeout",
             "phpstan --memory-limit=1G"
+        ],
+        "rector": [
+            "./vendor/bin/rector",
+            "composer run lint-fix"
         ]
     },
     "config": {
