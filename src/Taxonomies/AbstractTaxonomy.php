@@ -44,40 +44,30 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 	 * Used to alter the order in which classes are initialized.
 	 *
 	 * Lower number will be initialized first.
-	 *
-	 * @return int
 	 */
-	public function load_order() {
+	public function load_order(): int {
 		return 9;
 	}
 
 	/**
 	 * Get the taxonomy name.
-	 *
-	 * @return string
 	 */
-	abstract public function get_name();
+	abstract public function get_name(): string;
 
 	/**
 	 * Get the singular taxonomy label.
-	 *
-	 * @return string
 	 */
-	abstract public function get_singular_label();
+	abstract public function get_singular_label(): string;
 
 	/**
 	 * Get the plural taxonomy label.
-	 *
-	 * @return string
 	 */
-	abstract public function get_plural_label();
+	abstract public function get_plural_label(): string;
 
 	/**
 	 * Is the taxonomy hierarchical?
-	 *
-	 * @return bool
 	 */
-	public function is_hierarchical() {
+	public function is_hierarchical(): bool {
 		return false;
 	}
 
@@ -85,9 +75,8 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 	 * Register hooks and actions.
 	 *
 	 * @uses $this->get_name() to get the taxonomy's slug.
-	 * @return bool
 	 */
-	public function register() {
+	public function register(): void {
 		\register_taxonomy(
 			$this->get_name(),
 			$this->get_post_types(),
@@ -95,8 +84,6 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 		);
 
 		$this->after_register();
-
-		return true;
 	}
 
 	/**
@@ -137,7 +124,7 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 	 *       _builtin?: bool,
 	 *  }
 	 */
-	public function get_options() {
+	public function get_options(): array {
 		return [
 			'labels'            => $this->get_labels(),
 			'hierarchical'      => $this->is_hierarchical(),
@@ -154,7 +141,7 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 	 *
 	 * @return array<string, string>
 	 */
-	public function get_labels() {
+	public function get_labels(): array {
 		$plural_label   = $this->get_plural_label();
 		$singular_label = $this->get_singular_label();
 
@@ -187,16 +174,14 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 	 *
 	 * @return array<string>
 	 */
-	public function get_post_types() {
+	public function get_post_types(): array {
 		return [];
 	}
 
 	/**
 	 * Run any code after the taxonomy has been registered.
-	 *
-	 * @return void
 	 */
-	public function after_register() {
+	public function after_register(): void {
 		// Do nothing.
 	}
 }
