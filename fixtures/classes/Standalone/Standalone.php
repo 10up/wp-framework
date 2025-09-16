@@ -27,7 +27,7 @@ class Standalone {
 	 *
 	 * @return void
 	 */
-	public function init() {
+	public function init(): void {
 		echo 'Hello from the Standalone class!';
 	}
 }
