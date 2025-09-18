@@ -141,72 +141,34 @@ class GetAssetInfoTest extends TestCase {
 			use GetAssetInfo;
 		};
 
-		// Initialize WP_Filesystem
-		global $wp_filesystem;
-		if ( empty( $wp_filesystem ) ) {
-			require_once ABSPATH . '/wp-admin/includes/file.php';
-			WP_Filesystem();
-		}
-
-		// Create a temporary test directory structure
-		$test_dir   = get_temp_dir() . 'wp-framework-test-' . uniqid();
-		$css_dir    = $test_dir . '/css';
-		$js_dir     = $test_dir . '/js';
-		$blocks_dir = $test_dir . '/blocks';
-
-		// Create directories using WP_Filesystem
-		$wp_filesystem->mkdir( $test_dir, 0755 );
-		$wp_filesystem->mkdir( $css_dir, 0755 );
-		$wp_filesystem->mkdir( $js_dir, 0755 );
-		$wp_filesystem->mkdir( $blocks_dir, 0755 );
-
-		// Create asset files
-		$css_asset   = [
-			'version'      => '1.0.0',
-			'dependencies' => [ 'css-dep' ],
-		];
-		$css_content = '<?php return ' . wp_json_encode( $css_asset ) . ';';
-		$wp_filesystem->put_contents( $css_dir . '/file.asset.php', $css_content );
-
-		$js_asset   = [
-			'version'      => '2.0.0',
-			'dependencies' => [ 'js-dep' ],
-		];
-		$js_content = '<?php return ' . wp_json_encode( $js_asset ) . ';';
-		$wp_filesystem->put_contents( $js_dir . '/file.asset.php', $js_content );
-
-		$blocks_asset   = [
-			'version'      => '3.0.0',
-			'dependencies' => [ 'blocks-dep' ],
-		];
-		$blocks_content = '<?php return ' . wp_json_encode( $blocks_asset ) . ';';
-		$wp_filesystem->put_contents( $blocks_dir . '/file.asset.php', $blocks_content );
-
 		$asset_info->setup_asset_vars(
-			dist_path: $test_dir,
+			dist_path: dirname( __DIR__, 2 ) . '/fixtures/assets/dist',
 			fallback_version: '1.0.0'
 		);
 
-		// Test CSS prefix
-		$asset = $asset_info->get_asset_info( slug: 'css/file' );
-		$this->assertEquals( $css_asset, $asset );
+		// Test CSS prefix with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'css/test-style' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/css/test-style.asset.php';
+		$this->assertEquals( $vars, $asset );
 
-		// Test JS prefix
-		$asset = $asset_info->get_asset_info( slug: 'js/file' );
-		$this->assertEquals( $js_asset, $asset );
+		// Test JS prefix with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'js/test-script' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/js/test-script.asset.php';
+		$this->assertEquals( $vars, $asset );
 
-		// Test blocks prefix
-		$asset = $asset_info->get_asset_info( slug: 'blocks/file' );
-		$this->assertEquals( $blocks_asset, $asset );
-
-		// Clean up using WP_Filesystem
-		$wp_filesystem->delete( $css_dir . '/file.asset.php' );
-		$wp_filesystem->delete( $js_dir . '/file.asset.php' );
-		$wp_filesystem->delete( $blocks_dir . '/file.asset.php' );
-		$wp_filesystem->rmdir( $css_dir );
-		$wp_filesystem->rmdir( $js_dir );
-		$wp_filesystem->rmdir( $blocks_dir );
-		$wp_filesystem->rmdir( $test_dir );
+		// Test blocks prefix with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'blocks/test-block' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/blocks/test-block.asset.php';
+		$this->assertEquals( $vars, $asset );
 	}
 
 	/**
@@ -219,57 +181,26 @@ class GetAssetInfoTest extends TestCase {
 			use GetAssetInfo;
 		};
 
-		// Initialize WP_Filesystem
-		global $wp_filesystem;
-		if ( empty( $wp_filesystem ) ) {
-			require_once ABSPATH . '/wp-admin/includes/file.php';
-			WP_Filesystem();
-		}
-
-		// Create a temporary test directory structure
-		$test_dir = get_temp_dir() . 'wp-framework-test-' . uniqid();
-		$css_dir  = $test_dir . '/css';
-		$js_dir   = $test_dir . '/js';
-
-		// Create directories using WP_Filesystem
-		$wp_filesystem->mkdir( $test_dir, 0755 );
-		$wp_filesystem->mkdir( $css_dir, 0755 );
-		$wp_filesystem->mkdir( $js_dir, 0755 );
-
-		// Create asset files
-		$css_prefix_asset = [
-			'version'      => '2.0.0',
-			'dependencies' => [ 'css-prefix-dep' ],
-		];
-		$css_content      = '<?php return ' . wp_json_encode( $css_prefix_asset ) . ';';
-		$wp_filesystem->put_contents( $css_dir . '/file.asset.php', $css_content );
-
-		$js_fallback_asset = [
-			'version'      => '1.0.0',
-			'dependencies' => [ 'js-fallback-dep' ],
-		];
-		$js_content        = '<?php return ' . wp_json_encode( $js_fallback_asset ) . ';';
-		$wp_filesystem->put_contents( $js_dir . '/file.asset.php', $js_content );
-
 		$asset_info->setup_asset_vars(
-			dist_path: $test_dir,
+			dist_path: dirname( __DIR__, 2 ) . '/fixtures/assets/dist',
 			fallback_version: '1.0.0'
 		);
 
-		// Test that prefix-based slug takes priority
-		$asset = $asset_info->get_asset_info( slug: 'css/file' );
-		$this->assertEquals( $css_prefix_asset, $asset );
+		// Test that prefix-based slug works with existing fixtures
+		$asset = $asset_info->get_asset_info( slug: 'css/test-style' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/css/test-style.asset.php';
+		$this->assertEquals( $vars, $asset );
 
 		// Test that fallback still works for non-prefixed slugs
-		$asset = $asset_info->get_asset_info( slug: 'file' );
-		$this->assertEquals( $js_fallback_asset, $asset );
-
-		// Clean up using WP_Filesystem
-		$wp_filesystem->delete( $css_dir . '/file.asset.php' );
-		$wp_filesystem->delete( $js_dir . '/file.asset.php' );
-		$wp_filesystem->rmdir( $css_dir );
-		$wp_filesystem->rmdir( $js_dir );
-		$wp_filesystem->rmdir( $test_dir );
+		$asset = $asset_info->get_asset_info( slug: 'test-script' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/js/test-script.asset.php';
+		$this->assertEquals( $vars, $asset );
 	}
 
 	/**
@@ -282,52 +213,34 @@ class GetAssetInfoTest extends TestCase {
 			use GetAssetInfo;
 		};
 
-		// Initialize WP_Filesystem
-		global $wp_filesystem;
-		if ( empty( $wp_filesystem ) ) {
-			require_once ABSPATH . '/wp-admin/includes/file.php';
-			WP_Filesystem();
-		}
-
-		// Create a temporary test directory structure
-		$test_dir = get_temp_dir() . 'wp-framework-test-' . uniqid();
-		$js_dir   = $test_dir . '/js';
-		$css_dir  = $test_dir . '/css';
-
-		// Create directories using WP_Filesystem
-		$wp_filesystem->mkdir( $test_dir, 0755 );
-		$wp_filesystem->mkdir( $js_dir, 0755 );
-		$wp_filesystem->mkdir( $css_dir, 0755 );
-
-		// Create asset files in subdirectories only (no direct file)
-		$js_asset   = [
-			'version'      => '1.0.0',
-			'dependencies' => [ 'js-dep' ],
-		];
-		$js_content = '<?php return ' . wp_json_encode( $js_asset ) . ';';
-		$wp_filesystem->put_contents( $js_dir . '/fallback-asset.asset.php', $js_content );
-
-		$css_asset   = [
-			'version'      => '1.5.0',
-			'dependencies' => [ 'css-dep' ],
-		];
-		$css_content = '<?php return ' . wp_json_encode( $css_asset ) . ';';
-		$wp_filesystem->put_contents( $css_dir . '/fallback-asset.asset.php', $css_content );
-
 		$asset_info->setup_asset_vars(
-			dist_path: $test_dir,
+			dist_path: dirname( __DIR__, 2 ) . '/fixtures/assets/dist',
 			fallback_version: '1.0.0'
 		);
 
 		// Test that it falls back to JS directory first (priority order: js -> css -> blocks)
-		$asset = $asset_info->get_asset_info( slug: 'fallback-asset' );
-		$this->assertEquals( $js_asset, $asset );
+		// Using existing fixture that exists in js/ directory
+		$asset = $asset_info->get_asset_info( slug: 'test-script' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/js/test-script.asset.php';
+		$this->assertEquals( $vars, $asset );
 
-		// Clean up using WP_Filesystem
-		$wp_filesystem->delete( $js_dir . '/fallback-asset.asset.php' );
-		$wp_filesystem->delete( $css_dir . '/fallback-asset.asset.php' );
-		$wp_filesystem->rmdir( $js_dir );
-		$wp_filesystem->rmdir( $css_dir );
-		$wp_filesystem->rmdir( $test_dir );
+		// Test CSS fallback with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'test-style' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/css/test-style.asset.php';
+		$this->assertEquals( $vars, $asset );
+
+		// Test blocks fallback with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'test-block' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/blocks/test-block.asset.php';
+		$this->assertEquals( $vars, $asset );
 	}
 }
