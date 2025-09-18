@@ -156,7 +156,7 @@ class EmojiTest extends TestCase {
 		$result             = $emoji->disable_emojis_tinymce( $plugins_with_emoji );
 
 		$this->assertNotContains( 'wpemoji', $result );
-		$this->assertContains( 'WordPress', $result );
+		$this->assertContains( 'wordpress', $result );
 		$this->assertContains( 'media', $result );
 
 		// Test with wpemoji plugin not present
