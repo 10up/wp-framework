@@ -113,6 +113,11 @@ abstract class BlockRegistrar implements ModuleInterface {
 
 				$block_options = $this->get_block_options( $block_folder );
 
+				/**
+				 * Block registration options with proper typing for WordPress function.
+				 *
+				 * @var array{api_version?: string, title?: string, category?: string|null, parent?: array<string>|null, ancestor?: array<string>|null, allowed_blocks?: array<string>|null, icon?: string|null, description?: string, render_callback?: callable} $block_options
+				 */
 				$block = register_block_type_from_metadata( $block_folder, $block_options );
 				if ( ! $block ) {
 					$errors[] = "Failed to register block: {$block_folder}";
@@ -168,14 +173,15 @@ abstract class BlockRegistrar implements ModuleInterface {
 		$markup_file_path = $block_folder . '/markup.php';
 		if ( file_exists( $markup_file_path ) ) {
 			// Only add the render callback if the block has a file called markup.php in its directory
-			$block_options['render_callback'] = function ( $attributes, $content, $block ) use ( $block_folder ) {
+			$block_options['render_callback'] = function ( array $attributes, string $content, \WP_Block $block ) use ( $block_folder ): string {
 				// Create helpful variables that will be accessible in markup.php file
 				$context = $block->context;
 
 				// Get the actual markup from the markup.php file
 				ob_start();
 				include $block_folder . '/markup.php';
-				return ob_get_clean();
+				$output = ob_get_clean();
+				return is_string( $output ) ? $output : '';
 			};
 		}
 
@@ -185,7 +191,7 @@ abstract class BlockRegistrar implements ModuleInterface {
 	/**
 	 * Register blocks in allowed_block_types_all filter.
 	 *
-	 * @param array $block_names Array of block names to allow.
+	 * @param array<string> $block_names Array of block names to allow.
 	 * @return void
 	 */
 	protected function register_allowed_block_types( array $block_names ): void {
@@ -310,7 +316,7 @@ abstract class BlockRegistrar implements ModuleInterface {
 		}
 
 		// Validate required fields
-		if ( ! isset( $metadata['name'] ) || ! is_string( $metadata['name'] ) ) {
+		if ( ! is_array( $metadata ) || ! isset( $metadata['name'] ) || ! is_string( $metadata['name'] ) ) {
 			return false;
 		}
 
