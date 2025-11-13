@@ -37,9 +37,9 @@ ModuleInitialization performs the following steps:
 
 Environment cache behavior
 - Where cache lives: under the directory you pass to `init_classes()`, in a `class-loader-cache` folder (e.g., `YOUR_PLUGIN_INC . 'class-loader-cache'`).
-- When it’s used: only in `production` and `staging` environment types (`wp_get_environment_type()`).
+- When it's used: only in `production` and `staging` environment types (`wp_get_environment_type()`).
 - How to clear: delete the `class-loader-cache` folder; it will be rebuilt on next discovery.
-- How to disable in development: use `development` or `local` environment types, or define `VIP_GO_APP_ENVIRONMENT` to skip the cache.
+- How to disable: use `development` or `local` environment types, define `VIP_GO_APP_ENVIRONMENT`, or set `define( 'TENUP_FRAMEWORK_DISABLE_CACHE', true )` to skip the cache. The `TENUP_FRAMEWORK_DISABLE_CACHE` constant is useful for environments that don't support writable file systems.
 
 Hooks
 - Action: `tenup_framework_module_init__{slug}` — fires before each module’s `register()` runs.

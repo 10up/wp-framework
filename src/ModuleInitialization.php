@@ -68,7 +68,22 @@ class ModuleInitialization {
 		$class_finder->classes();
 
 		// If we are in production or staging, cache the class loader to improve performance.
-		if ( ! defined( 'VIP_GO_APP_ENVIRONMENT' ) && in_array( wp_get_environment_type(), [ 'production', 'staging' ], true ) ) {
+		// Skip caching if TENUP_FRAMEWORK_DISABLE_CACHE is set to true.
+		$is_vip_environment           = defined( 'VIP_GO_APP_ENVIRONMENT' );
+		$is_cache_disabled            = defined( 'TENUP_FRAMEWORK_DISABLE_CACHE' ) && constant( 'TENUP_FRAMEWORK_DISABLE_CACHE' );
+
+		// VIP is a special case that we always want to skip caching for.
+		if ( $is_vip_environment ) {
+			$is_cache_disabled = true;
+		}
+
+		$is_production_or_staging_env = in_array( wp_get_environment_type(), [ 'production', 'staging' ], true );
+
+		$should_cache = ! $is_vip_environment
+			&& ! $is_cache_disabled
+			&& $is_production_or_staging_env;
+
+		if ( $should_cache ) {
 			$class_finder->withCache(
 				__NAMESPACE__,
 				new FileDiscoverCacheDriver( $dir . '/class-loader-cache' )
