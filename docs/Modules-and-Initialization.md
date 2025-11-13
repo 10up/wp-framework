@@ -40,6 +40,7 @@ Environment cache behavior
 - When it’s used: only in `production` and `staging` environment types (`wp_get_environment_type()`).
 - How to clear: delete the `class-loader-cache` folder; it will be rebuilt on next discovery.
 - How to disable in development: use `development` or `local` environment types, or define `VIP_GO_APP_ENVIRONMENT` to skip the cache.
+- How to disable for hosts that don't support file-based caching: `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true );` to skip caching altogether.
 
 Hooks
 - Action: `tenup_framework_module_init__{slug}` — fires before each module’s `register()` runs.
