@@ -46,18 +46,24 @@ abstract class AbstractPostType implements ModuleInterface {
 
 	/**
 	 * Get the post type name.
+	 *
+	 * @return string
 	 */
-	abstract public function get_name(): string;
+	abstract public function get_name();
 
 	/**
 	 * Get the singular post type label.
+	 *
+	 * @return string
 	 */
-	abstract public function get_singular_label(): string;
+	abstract public function get_singular_label();
 
 	/**
 	 * Get the plural post type label.
+	 *
+	 * @return string
 	 */
-	abstract public function get_plural_label(): string;
+	abstract public function get_plural_label();
 
 	/**
 	 * Get the menu icon for the post type.
@@ -65,20 +71,26 @@ abstract class AbstractPostType implements ModuleInterface {
 	 * This can be a base64 encoded SVG, a dashicons class or 'none' to leave it empty so it can be filled with CSS.
 	 *
 	 * @see https://developer.wordpress.org/resource/dashicons/
+	 *
+	 * @return string
 	 */
-	abstract public function get_menu_icon(): string;
+	abstract public function get_menu_icon();
 
 	/**
 	 * Get the menu position for the post type.
+	 *
+	 * @return int|null
 	 */
-	public function get_menu_position(): int|null {
+	public function get_menu_position() {
 		return null;
 	}
 
 	/**
 	 * Is the post type hierarchical?
+	 *
+	 * @return bool
 	 */
-	public function is_hierarchical(): bool {
+	public function is_hierarchical() {
 		return false;
 	}
 
@@ -87,7 +99,7 @@ abstract class AbstractPostType implements ModuleInterface {
 	 *
 	 * @return array<string>
 	 */
-	public function get_editor_supports(): array {
+	public function get_editor_supports() {
 		$supports = [
 			'title',
 			'editor',
@@ -142,7 +154,7 @@ abstract class AbstractPostType implements ModuleInterface {
 	 *      template_lock?: string|false,
 	 *  }
 	 */
-	public function get_options(): array {
+	public function get_options() {
 		$options = [
 			'labels'            => $this->get_labels(),
 			'public'            => true,
@@ -170,7 +182,7 @@ abstract class AbstractPostType implements ModuleInterface {
 	 *
 	 * @return array<string>
 	 */
-	public function get_labels(): array {
+	public function get_labels() {
 		$plural_label   = $this->get_plural_label();
 		$singular_label = $this->get_singular_label();
 
@@ -213,18 +225,25 @@ abstract class AbstractPostType implements ModuleInterface {
 
 	/**
 	 * Registers a post type and associates its taxonomies.
+	 *
+	 * @uses $this->get_name() to get the post's type name.
+	 * @return Bool Whether this theme has supports for this post type.
 	 */
-	public function register(): void {
+	public function register() {
 		$this->register_post_type();
 		$this->register_taxonomies();
 
 		$this->after_register();
+
+		return true;
 	}
 
 	/**
 	 * Registers the current post type with WordPress.
+	 *
+	 * @return void
 	 */
-	public function register_post_type(): void {
+	public function register_post_type() {
 		register_post_type(
 			$this->get_name(),
 			$this->get_options()
@@ -233,8 +252,10 @@ abstract class AbstractPostType implements ModuleInterface {
 
 	/**
 	 * Registers the taxonomies declared with the current post type.
+	 *
+	 * @return void
 	 */
-	public function register_taxonomies(): void {
+	public function register_taxonomies() {
 		$taxonomies = $this->get_supported_taxonomies();
 
 		$object_type = $this->get_name();
@@ -255,14 +276,16 @@ abstract class AbstractPostType implements ModuleInterface {
 	 *
 	 * @return array<string>
 	 */
-	public function get_supported_taxonomies(): array {
+	public function get_supported_taxonomies() {
 		return [];
 	}
 
 	/**
 	 * Run any code after the post type has been registered.
+	 *
+	 * @return void
 	 */
-	public function after_register(): void {
+	public function after_register() {
 		// Do nothing.
 	}
 }

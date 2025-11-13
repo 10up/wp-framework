@@ -1,7 +1,6 @@
 includes:
 	- vendor/szepeviktor/phpstan-wordpress/extension.neon
 	- vendor/phpstan/phpstan-deprecation-rules/rules.neon
-	- vendor/tomasvotruba/type-coverage/config/extension.neon
 
 parameters:
 	paths:
@@ -17,8 +16,3 @@ parameters:
 		- '#^Function remove_filter invoked with [34567] parameters, 2-3 required\.$#'
 		# Remove issues that come from using array as a type rather than string[] or array<string> etc.
 		- '#no value type specified in iterable type array#'
-	type_coverage:
-		return: 99
-		param: 99
-		property: 99
-		constant: 99
