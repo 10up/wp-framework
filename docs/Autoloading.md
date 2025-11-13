@@ -82,7 +82,7 @@ Environment caching:
 - Discovery results are cached only in production and staging environments (per `wp_get_environment_type()`).
 - Cache is stored under the directory you pass to `init_classes()`, in a "class-loader-cache" folder (e.g., `YOUR_PLUGIN_INC . 'class-loader-cache'`).
 - To refresh: delete that folder; it will be rebuilt automatically.
-- Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined.
+- Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined or when `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` is set to `true`. Use `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true )` in environments that don't support writable file systems.
 
 ## Defining a Module
 ```php
