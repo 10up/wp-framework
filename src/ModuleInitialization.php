@@ -68,6 +68,8 @@ class ModuleInitialization {
 		$class_finder = Discover::in( $dir );
 		// Only fetch classes.
 		$class_finder->classes();
+		// Disable inheritance chain resolution
+		$class_finder->withoutChains();
 
 		// If we are in production or staging, cache the class loader to improve performance.
 		if ( $this->should_use_cache() ) {
