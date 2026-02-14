@@ -130,4 +130,117 @@ class GetAssetInfoTest extends TestCase {
 			slug: 'test-script'
 		);
 	}
+
+	/**
+	 * Test get_asset_info with prefix-based slug handling (css/, js/, blocks/).
+	 *
+	 * @return void
+	 */
+	public function test_get_asset_info_with_prefix_based_slug() {
+		$asset_info = new class() {
+			use GetAssetInfo;
+		};
+
+		$asset_info->setup_asset_vars(
+			dist_path: dirname( __DIR__, 2 ) . '/fixtures/assets/dist',
+			fallback_version: '1.0.0'
+		);
+
+		// Test CSS prefix with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'css/test-style' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/css/test-style.asset.php';
+		$this->assertEquals( $vars, $asset );
+
+		// Test JS prefix with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'js/test-script' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/js/test-script.asset.php';
+		$this->assertEquals( $vars, $asset );
+
+		// Test blocks prefix with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'blocks/test-block' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/blocks/test-block.asset.php';
+		$this->assertEquals( $vars, $asset );
+	}
+
+	/**
+	 * Test get_asset_info priority order: prefix-based slugs take priority over fallback.
+	 *
+	 * @return void
+	 */
+	public function test_get_asset_info_priority_order_prefix_vs_fallback() {
+		$asset_info = new class() {
+			use GetAssetInfo;
+		};
+
+		$asset_info->setup_asset_vars(
+			dist_path: dirname( __DIR__, 2 ) . '/fixtures/assets/dist',
+			fallback_version: '1.0.0'
+		);
+
+		// Test that prefix-based slug works with existing fixtures
+		$asset = $asset_info->get_asset_info( slug: 'css/test-style' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/css/test-style.asset.php';
+		$this->assertEquals( $vars, $asset );
+
+		// Test that fallback still works for non-prefixed slugs
+		$asset = $asset_info->get_asset_info( slug: 'test-script' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/js/test-script.asset.php';
+		$this->assertEquals( $vars, $asset );
+	}
+
+	/**
+	 * Test get_asset_info fallback behavior when direct file doesn't exist.
+	 *
+	 * @return void
+	 */
+	public function test_get_asset_info_fallback_when_direct_file_missing() {
+		$asset_info = new class() {
+			use GetAssetInfo;
+		};
+
+		$asset_info->setup_asset_vars(
+			dist_path: dirname( __DIR__, 2 ) . '/fixtures/assets/dist',
+			fallback_version: '1.0.0'
+		);
+
+		// Test that it falls back to JS directory first (priority order: js -> css -> blocks)
+		// Using existing fixture that exists in js/ directory
+		$asset = $asset_info->get_asset_info( slug: 'test-script' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/js/test-script.asset.php';
+		$this->assertEquals( $vars, $asset );
+
+		// Test CSS fallback with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'test-style' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/css/test-style.asset.php';
+		$this->assertEquals( $vars, $asset );
+
+		// Test blocks fallback with existing fixture
+		$asset = $asset_info->get_asset_info( slug: 'test-block' );
+		$this->assertIsArray( $asset );
+		$this->assertArrayHasKey( 'version', $asset );
+		$this->assertArrayHasKey( 'dependencies', $asset );
+		$vars = require dirname( __DIR__, 2 ) . '/fixtures/assets/dist/blocks/test-block.asset.php';
+		$this->assertEquals( $vars, $asset );
+	}
 }

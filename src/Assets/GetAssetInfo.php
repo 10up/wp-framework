@@ -61,7 +61,9 @@ trait GetAssetInfo {
 			throw new RuntimeException( 'Asset variables not set. Please run setup_asset_vars() before calling get_asset_info().' );
 		}
 
-		if ( file_exists( $this->dist_path . 'js/' . $slug . '.asset.php' ) ) {
+		if ( file_exists( $this->dist_path . $slug . '.asset.php' ) ) {
+			$asset = require $this->dist_path . $slug . '.asset.php';
+		} elseif ( file_exists( $this->dist_path . 'js/' . $slug . '.asset.php' ) ) {
 			$asset = require $this->dist_path . 'js/' . $slug . '.asset.php';
 		} elseif ( file_exists( $this->dist_path . 'css/' . $slug . '.asset.php' ) ) {
 			$asset = require $this->dist_path . 'css/' . $slug . '.asset.php';
