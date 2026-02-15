@@ -23,24 +23,22 @@ trait GetAssetInfo {
 	 *
 	 * @var ?string
 	 */
-	public $dist_path = null;
+	public ?string $dist_path = null;
 
 	/**
 	 * Fallback version to use if asset file is not found
 	 *
 	 * @var ?string
 	 */
-	public $fallback_version = null;
+	public ?string $fallback_version = null;
 
 	/**
 	 * Setup asset variables
 	 *
 	 * @param string $dist_path        Path to the dist directory
 	 * @param string $fallback_version Fallback version to use if asset file is not found
-	 *
-	 * @return void
 	 */
-	public function setup_asset_vars( string $dist_path, string $fallback_version ) {
+	public function setup_asset_vars( string $dist_path, string $fallback_version ): void {
 		$this->dist_path        = trailingslashit( $dist_path );
 		$this->fallback_version = $fallback_version;
 	}
@@ -55,7 +53,7 @@ trait GetAssetInfo {
 	 *
 	 * @return string|($attribute is null ? array{version: string, dependencies: array<string>} : $attribute is'dependencies' ? array<string> : string)
 	 */
-	public function get_asset_info( string $slug, ?string $attribute = null ) {
+	public function get_asset_info( string $slug, ?string $attribute = null ): string|array {
 
 		if ( is_null( $this->dist_path ) || is_null( $this->fallback_version ) ) {
 			throw new RuntimeException( 'Asset variables not set. Please run setup_asset_vars() before calling get_asset_info().' );
