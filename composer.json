@@ -18,6 +18,9 @@
             "role": "Developer"
         }
     ],
+    "bin": [
+        "bin/tenup-framework-generate-class-cache"
+    ],
     "autoload": {
         "psr-4": {
             "TenupFramework\\": "src/"
@@ -52,7 +55,11 @@
         "static": [
             "Composer\\Config::disableProcessTimeout",
             "phpstan --memory-limit=1G"
-        ]
+        ],
+        "generate-class-cache": "@php bin/tenup-framework-generate-class-cache"
+    },
+    "scripts-descriptions": {
+        "generate-class-cache": "Generate the class-loader cache for one or more directories, e.g. `composer generate-class-cache -- inc/`."
     },
     "config": {
         "allow-plugins": {

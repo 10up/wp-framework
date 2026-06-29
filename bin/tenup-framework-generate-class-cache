@@ -1,0 +1,76 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Generate the 10up WP Framework class-loader cache for one or more directories.
+ *
+ * Runs at build time (typically in CI) WITHOUT bootstrapping WordPress, and writes a
+ * cache file into each given directory. At runtime the framework reads that file but
+ * never rewrites it, so the cache can never go stale on a server (see GitHub issue #30).
+ *
+ * Usage:
+ *   tenup-framework-generate-class-cache <dir> [<dir> ...]
+ *
+ * Pass the same directory (or directories) you pass to
+ * TenupFramework\ModuleInitialization::init_classes() — usually your plugin/theme `inc/`.
+ *
+ * @package TenupFramework
+ */
+
+declare( strict_types = 1 );
+
+namespace TenupFramework\Bin;
+
+use TenupFramework\ModuleInitialization;
+use Throwable;
+
+// Locate the Composer autoloader whether this runs from within the package itself
+// (development) or installed inside a consumer project's vendor directory. Composer 2.2+
+// exposes the path via this global from the generated bin proxy; otherwise fall back to
+// the known relative locations.
+$tenup_autoloader_loaded = false;
+
+if ( isset( $GLOBALS['_composer_autoload_path'] ) && file_exists( (string) $GLOBALS['_composer_autoload_path'] ) ) {
+	require $GLOBALS['_composer_autoload_path'];
+	$tenup_autoloader_loaded = true;
+} else {
+	$tenup_autoload_candidates = [
+		__DIR__ . '/../vendor/autoload.php', // Running from the package itself.
+		__DIR__ . '/../../../autoload.php',  // Installed at vendor/10up/wp-framework/bin.
+	];
+
+	foreach ( $tenup_autoload_candidates as $tenup_autoload_candidate ) {
+		if ( file_exists( $tenup_autoload_candidate ) ) {
+			require $tenup_autoload_candidate;
+			$tenup_autoloader_loaded = true;
+			break;
+		}
+	}
+}
+
+if ( ! $tenup_autoloader_loaded ) {
+	fwrite( STDERR, "Could not locate the Composer autoloader. Run `composer install` first.\n" );
+	exit( 1 );
+}
+
+// Target directories are the CLI arguments (everything after the script name).
+$tenup_directories = array_slice( $argv, 1 );
+
+if ( empty( $tenup_directories ) ) {
+	fwrite( STDERR, "Usage: tenup-framework-generate-class-cache <dir> [<dir> ...]\n" );
+	fwrite( STDERR, "Pass one or more directories (the same ones passed to ModuleInitialization::init_classes()).\n" );
+	exit( 1 );
+}
+
+$tenup_exit_code = 0;
+
+foreach ( $tenup_directories as $tenup_directory ) {
+	try {
+		$tenup_classes = ModuleInitialization::instance()->generate_cache( $tenup_directory );
+		fwrite( STDOUT, sprintf( "Cached %d class(es) for %s\n", count( $tenup_classes ), $tenup_directory ) );
+	} catch ( Throwable $tenup_exception ) {
+		fwrite( STDERR, sprintf( "Failed to generate cache for %s: %s\n", $tenup_directory, $tenup_exception->getMessage() ) );
+		$tenup_exit_code = 1;
+	}
+}
+
+exit( $tenup_exit_code );

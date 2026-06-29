@@ -17,6 +17,18 @@
 		</properties>
 	</rule>
 
+	<!--
+		Unit tests run without WordPress loaded, so WP_Filesystem is unavailable and direct
+		filesystem calls are required to set up fixtures on disk. serialize() is likewise
+		needed to reproduce the on-disk cache format written by older framework versions.
+	-->
+	<rule ref="WordPress.WP.AlternativeFunctions">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+
 	<arg value="sp"/> <!-- Show sniff and progress -->
 	<arg name="colors"/> <!-- Show results with colors. Disable if working on Windows -->
 	<arg name="basepath" value="."/> <!-- Strip the file paths down to the relevant bit -->

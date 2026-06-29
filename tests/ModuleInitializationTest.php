@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace TenupFrameworkTests;
 
 use PHPUnit\Framework\TestCase;
-use function Brain\Monkey\Functions\stubs;
+use function Brain\Monkey\Functions\when;
 
 /**
  * Test Class
@@ -151,72 +151,231 @@ class ModuleInitializationTest extends TestCase {
 
 
 	/**
-	 * Ensure it returns false if VIP_GO_APP_ENVIRONMENT is defined.
+	 * generate_cache() writes a readable cache file and returns the discovered classes.
 	 *
 	 * @return void
 	 */
-	public function test_should_use_cache_returns_false_when_vip_env_is_defined() {
-		define( 'VIP_GO_APP_ENVIRONMENT', true );
-		$module_init = \TenupFramework\ModuleInitialization::instance();
-		$reflection  = new \ReflectionClass( $module_init );
-		$method      = $reflection->getMethod( 'should_use_cache' );
-		$method->setAccessible( true );
+	public function test_generate_cache_writes_a_readable_cache_file() {
+		$dir = $this->make_temp_class_dir();
 
-		$this->assertFalse( $method->invoke( $module_init ) );
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$cached      = $module_init->generate_cache( $dir );
+
+		$this->assertFileExists( $this->cache_file_path( $dir ) );
+		$this->assertContains( 'TenupTmp\\Widget', $cached );
+
+		$this->remove_temp_dir( $dir );
 	}
 
 	/**
-	 * Ensure it returns false in non-production or staging environments.
+	 * The runtime read path uses the cache file when one is present.
 	 *
 	 * @return void
 	 */
-	public function test_should_use_cache_returns_false_in_non_production_or_staging_env() {
-		stubs(
-			[
-				'wp_get_environment_type' => 'development',
-			]
-		);
+	public function test_get_classes_reads_the_cache_file_when_present() {
+		$dir = $this->make_temp_class_dir();
 
 		$module_init = \TenupFramework\ModuleInitialization::instance();
-		$reflection  = new \ReflectionClass( $module_init );
-		$method      = $reflection->getMethod( 'should_use_cache' );
-		$method->setAccessible( true );
+		$module_init->generate_cache( $dir );
 
-		$this->assertFalse( $method->invoke( $module_init ) );
+		// Tamper with the cache so we can prove the read path uses it rather than re-discovering.
+		$this->write_file( $this->cache_file_path( $dir ), "<?php return array( 'TenupTmp\\\\Sentinel' );" );
+
+		$read = $module_init->get_classes( $dir );
+
+		$this->assertSame( [ 'TenupTmp\\Sentinel' ], array_values( $read ) );
+
+		$this->remove_temp_dir( $dir );
 	}
 
 	/**
-	 * Ensure it returns false when TENUP_FRAMEWORK_DISABLE_CLASS_CACHE is defined.
+	 * With no cache present the runtime discovers live and writes nothing.
 	 *
 	 * @return void
 	 */
-	public function test_should_use_cache_returns_false_when_disable_class_cache_is_defined() {
+	public function test_get_classes_creates_no_cache_when_none_exists() {
+		$dir = $this->make_temp_class_dir();
+
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$classes     = $module_init->get_classes( $dir );
+
+		$this->assertContains( 'TenupTmp\\Widget', $classes );
+		$this->assertDirectoryDoesNotExist( $dir . '/' . \TenupFramework\ModuleInitialization::CACHE_DIR_NAME );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * A cache written by an older framework version (a different filename) is ignored,
+	 * so an upgraded site never serves a stale cache it cannot rewrite.
+	 *
+	 * @return void
+	 */
+	public function test_get_classes_ignores_legacy_cache_file() {
+		$dir       = $this->make_temp_class_dir();
+		$cache_dir = $dir . '/' . \TenupFramework\ModuleInitialization::CACHE_DIR_NAME;
+		mkdir( $cache_dir );
+
+		// The previous version wrote `discoverer-cache-{id}` as a serialized file.
+		$this->write_file( $cache_dir . '/discoverer-cache-TenupFramework', serialize( [ 'TenupTmp\\Legacy' ] ) );
+
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$read        = $module_init->get_classes( $dir );
+
+		$this->assertNotContains( 'TenupTmp\\Legacy', $read );
+		$this->assertContains( 'TenupTmp\\Widget', $read );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * Defining TENUP_FRAMEWORK_DISABLE_CLASS_CACHE forces live discovery even when a
+	 * cache file is present.
+	 *
+	 * @return void
+	 */
+	public function test_disable_constant_forces_live_discovery() {
+		$dir = $this->make_temp_class_dir();
+
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$module_init->generate_cache( $dir );
+
+		// Tamper with the cache; with caching disabled this sentinel must not be read.
+		$this->write_file( $this->cache_file_path( $dir ), "<?php return array( 'TenupTmp\\\\Sentinel' );" );
+
 		define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true );
-		$module_init = \TenupFramework\ModuleInitialization::instance();
-		$reflection  = new \ReflectionClass( $module_init );
-		$method      = $reflection->getMethod( 'should_use_cache' );
-		$method->setAccessible( true );
 
-		$this->assertFalse( $method->invoke( $module_init ) );
+		$read = $module_init->get_classes( $dir );
+
+		$this->assertNotContains( 'TenupTmp\\Sentinel', $read );
+		$this->assertContains( 'TenupTmp\\Widget', $read );
+
+		$this->remove_temp_dir( $dir );
 	}
 
 	/**
-	 * Ensure it returns true under default conditions.
+	 * In the admin, init_classes() hands a loader record to the debug registry.
 	 *
 	 * @return void
 	 */
-	public function test_should_use_cache_returns_true_under_default_conditions() {
-		stubs(
-			[
-				'wp_get_environment_type' => 'production',
-			]
+	public function test_init_classes_records_a_loader_in_admin() {
+		when( 'is_admin' )->justReturn( true );
+		when( 'add_action' )->justReturn( true );
+		when( 'add_filter' )->justReturn( true );
+		when( 'apply_filters' )->returnArg( 2 );
+
+		$dir = $this->make_temp_class_dir();
+
+		\TenupFramework\ModuleInitialization::instance()->init_classes( $dir );
+
+		$loaders = \TenupFramework\Debug\LoaderDebug::get_loaders();
+		$this->assertCount( 1, $loaders );
+		$this->assertSame( $dir, $loaders[0]['directory'] );
+		$this->assertContains( 'TenupTmp\\Widget', $loaders[0]['classes'] );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * On the front end, init_classes() records nothing (the data is only viewable in the admin).
+	 *
+	 * @return void
+	 */
+	public function test_init_classes_records_nothing_on_the_front_end() {
+		when( 'is_admin' )->justReturn( false );
+
+		$dir = $this->make_temp_class_dir();
+
+		\TenupFramework\ModuleInitialization::instance()->init_classes( $dir );
+
+		$this->assertSame( [], \TenupFramework\Debug\LoaderDebug::get_loaders() );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * discover_live() ignores any cache file and returns the real on-disk classes.
+	 *
+	 * @return void
+	 */
+	public function test_discover_live_ignores_the_cache() {
+		$dir         = $this->make_temp_class_dir();
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$module_init->generate_cache( $dir );
+
+		// Tamper with the cache; discover_live() must not read it.
+		$this->write_file( $this->cache_file_path( $dir ), "<?php return array( 'TenupTmp\\\\Sentinel' );" );
+
+		$live = $module_init->discover_live( $dir );
+
+		$this->assertContains( 'TenupTmp\\Widget', $live );
+		$this->assertNotContains( 'TenupTmp\\Sentinel', $live );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * Build the absolute path to the cache file for a discovery directory.
+	 *
+	 * @param string $dir The discovery directory.
+	 *
+	 * @return string
+	 */
+	private function cache_file_path( string $dir ): string {
+		return $dir . '/' . \TenupFramework\ModuleInitialization::CACHE_DIR_NAME
+			. '/' . \TenupFramework\ModuleInitialization::CACHE_FILENAME;
+	}
+
+	/**
+	 * Create a temporary directory containing a single discoverable class.
+	 *
+	 * @return string The created directory path.
+	 */
+	private function make_temp_class_dir(): string {
+		$dir = sys_get_temp_dir() . '/tenup_framework_test_' . uniqid( '', true );
+		mkdir( $dir );
+		$this->write_file( $dir . '/Widget.php', "<?php\nnamespace TenupTmp;\nclass Widget {}\n" );
+
+		return $dir;
+	}
+
+	/**
+	 * Write a file, asserting the write succeeded.
+	 *
+	 * @param string $path     The file path.
+	 * @param string $contents The contents to write.
+	 *
+	 * @return void
+	 */
+	private function write_file( string $path, string $contents ): void {
+		$this->assertNotFalse( file_put_contents( $path, $contents ) );
+	}
+
+	/**
+	 * Recursively remove a temporary directory.
+	 *
+	 * @param string $dir The directory to remove.
+	 *
+	 * @return void
+	 */
+	private function remove_temp_dir( string $dir ): void {
+		if ( ! is_dir( $dir ) ) {
+			return;
+		}
+
+		$items = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $dir, \FilesystemIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::CHILD_FIRST
 		);
 
-		$module_init = \TenupFramework\ModuleInitialization::instance();
-		$reflection  = new \ReflectionClass( $module_init );
-		$method      = $reflection->getMethod( 'should_use_cache' );
-		$method->setAccessible( true );
+		foreach ( $items as $item ) {
+			if ( $item->isDir() ) {
+				rmdir( $item->getPathname() );
+			} else {
+				unlink( $item->getPathname() );
+			}
+		}
 
-		$this->assertTrue( $method->invoke( $module_init ) );
+		rmdir( $dir );
 	}
 }
