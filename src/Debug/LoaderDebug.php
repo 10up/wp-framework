@@ -189,12 +189,13 @@ class LoaderDebug {
 			$loaders = [];
 		}
 
-		echo '<div class="wrap">';
+		echo '<div class="wrap tenup-loaders">';
+		self::render_styles();
 		echo '<h1>' . esc_html__( 'WP Framework Loaders', 'tenup-framework' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Each block is a directory passed to ModuleInitialization::init_classes(), with the state of its class-loader cache. Caches are built at deploy time and read (never written) at runtime.', 'tenup-framework' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Each card is a directory passed to ModuleInitialization::init_classes(), with the state of its class-loader cache. Caches are built at deploy time and read — never written — at runtime.', 'tenup-framework' ) . '</p>';
 
 		if ( empty( $loaders ) ) {
-			echo '<p><strong>' . esc_html__( 'No class loaders were recorded for this request.', 'tenup-framework' ) . '</strong></p>';
+			echo '<div class="tenup-notice tenup-notice--info"><strong>' . esc_html__( 'No class loaders were recorded for this request.', 'tenup-framework' ) . '</strong></div>';
 			echo '</div>';
 			return;
 		}
@@ -223,31 +224,51 @@ class LoaderDebug {
 			? array_values( array_map( [ self::class, 'to_string' ], $loader['classes'] ) )
 			: [];
 
-		echo '<h2>' . esc_html( self::owner_label( $directory ) ) . '</h2>';
-		echo '<table class="widefat striped" style="max-width:60em;margin-bottom:1em;"><tbody>';
-
-		self::render_row( __( 'Directory', 'tenup-framework' ), $directory );
-		self::render_row( __( 'Framework version', 'tenup-framework' ), self::version_label( $loader ) );
-		self::render_row( __( 'Cache file', 'tenup-framework' ), $cache_file );
-		self::render_row( __( 'Cache status', 'tenup-framework' ), self::cache_status_label( $loader ) );
-		self::render_row( __( 'Classes loaded', 'tenup-framework' ), (string) count( $classes ) );
-
+		$state  = self::cache_state( $loader );
 		$legacy = self::legacy_files( $cache_file );
-		if ( ! empty( $legacy ) ) {
-			self::render_row(
-				__( 'Stale cache files', 'tenup-framework' ),
-				sprintf(
-					/* translators: %s: comma-separated list of unexpected filenames. */
-					__( 'Unexpected files alongside the current cache (likely left by an older version): %s', 'tenup-framework' ),
-					implode( ', ', $legacy )
-				)
-			);
+
+		echo '<div class="tenup-loader">';
+
+		echo '<div class="tenup-loader__head">';
+		echo '<h2>' . esc_html( self::owner_label( $directory ) ) . '</h2>';
+		echo '<span class="tenup-badge tenup-badge--' . esc_attr( $state['severity'] ) . '">' . esc_html( $state['badge'] ) . '</span>';
+		echo '</div>';
+
+		if ( '' !== $state['note'] ) {
+			echo '<div class="tenup-notice tenup-notice--' . esc_attr( $state['severity'] ) . '">' . esc_html( $state['note'] ) . '</div>';
 		}
 
+		if ( ! empty( $legacy ) ) {
+			echo '<div class="tenup-notice tenup-notice--error">' . esc_html(
+				sprintf(
+					/* translators: %s: comma-separated list of unexpected filenames. */
+					__( 'Unexpected files in the cache directory, likely left by an older version: %s. Delete them or redeploy.', 'tenup-framework' ),
+					implode( ', ', $legacy )
+				)
+			) . '</div>';
+		}
+
+		echo '<table class="widefat striped tenup-loader__meta"><tbody>';
+		self::render_row( __( 'Directory', 'tenup-framework' ), $directory );
+		self::render_row( __( 'Framework version', 'tenup-framework' ), self::version_label( $loader ) );
+		self::render_row( __( 'Cache file', 'tenup-framework' ), '' !== $cache_file ? $cache_file : '—' );
+		self::render_row( __( 'Cache detail', 'tenup-framework' ), self::cache_detail( $loader ) );
 		echo '</tbody></table>';
 
+		echo '<details class="tenup-loader__classes">';
+		echo '<summary>' . esc_html(
+			sprintf(
+				/* translators: %d: number of classes. */
+				_n( '%d class loaded', '%d classes loaded', count( $classes ), 'tenup-framework' ),
+				count( $classes )
+			)
+		) . '</summary>';
 		self::render_classes( $classes );
+		echo '</details>';
+
 		self::render_staleness( $directory, $classes, $check );
+
+		echo '</div>';
 	}
 
 	/**
@@ -274,7 +295,7 @@ class LoaderDebug {
 			return;
 		}
 
-		echo '<table class="widefat striped" style="max-width:60em;margin-bottom:1.5em;">';
+		echo '<table class="widefat striped tenup-loader__class-table">';
 		echo '<thead><tr><th>' . esc_html__( 'Class', 'tenup-framework' ) . '</th><th>' . esc_html__( 'File', 'tenup-framework' ) . '</th></tr></thead><tbody>';
 
 		$module_init = ModuleInitialization::instance();
@@ -315,7 +336,7 @@ class LoaderDebug {
 				self::CHECK_NONCE
 			);
 
-			echo '<p><a class="button" href="' . esc_url( $url ) . '">' . esc_html__( 'Check this cache for staleness', 'tenup-framework' ) . '</a></p>';
+			echo '<p class="tenup-loader__actions"><a class="button" href="' . esc_url( $url ) . '">' . esc_html__( 'Check this cache for staleness', 'tenup-framework' ) . '</a></p>';
 			return;
 		}
 
@@ -325,11 +346,12 @@ class LoaderDebug {
 		$added   = array_diff( $live, $loaded ); // On disk but missing from the cache.
 
 		if ( empty( $removed ) && empty( $added ) ) {
-			echo '<p><strong>' . esc_html__( 'Up to date — the cache matches a live scan.', 'tenup-framework' ) . '</strong></p>';
+			echo '<div class="tenup-notice tenup-notice--ok"><strong>' . esc_html__( 'Up to date — the cache matches a live scan.', 'tenup-framework' ) . '</strong></div>';
 			return;
 		}
 
-		echo '<p><strong>' . esc_html__( 'Stale — the cache differs from a live scan:', 'tenup-framework' ) . '</strong></p>';
+		echo '<div class="tenup-notice tenup-notice--error">';
+		echo '<strong>' . esc_html__( 'Stale — the cache differs from a live scan.', 'tenup-framework' ) . '</strong>';
 
 		if ( ! empty( $added ) ) {
 			echo '<p>' . esc_html__( 'On disk but missing from the cache:', 'tenup-framework' ) . '</p><ul>';
@@ -348,6 +370,7 @@ class LoaderDebug {
 		}
 
 		echo '<p>' . esc_html__( 'Regenerate the cache in your build (composer generate-class-cache) or remove the file and redeploy.', 'tenup-framework' ) . '</p>';
+		echo '</div>';
 	}
 
 	/**
@@ -451,36 +474,100 @@ class LoaderDebug {
 	}
 
 	/**
-	 * A label describing the cache status, including mtime, size and whether it is in use.
+	 * Resolve the headline cache state for a loader: a severity, a short badge label, and an
+	 * optional explanatory note.
+	 *
+	 * Severity maps to the badge/notice colour. Note that running uncached is a valid default
+	 * (caching is opt-in), so it is surfaced as a warning to be noticeable, not as an error.
+	 *
+	 * @param array $loader The loader record.
+	 *
+	 * @return array{severity: string, badge: string, note: string}
+	 */
+	protected static function cache_state( array $loader ): array {
+		if ( ! empty( $loader['cache_disabled'] ) ) {
+			return [
+				'severity' => 'warn',
+				'badge'    => __( 'Caching disabled', 'tenup-framework' ),
+				'note'     => __( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE is set, so any shipped cache is ignored and classes are discovered live on every request.', 'tenup-framework' ),
+			];
+		}
+
+		if ( empty( $loader['cache_exists'] ) ) {
+			return [
+				'severity' => 'warn',
+				'badge'    => __( 'Uncached — live discovery', 'tenup-framework' ),
+				'note'     => __( 'No cache file is present, so classes are discovered live on every request. That is the correct default for small projects; for large codebases, build a cache in your pipeline (see Build and Deployment).', 'tenup-framework' ),
+			];
+		}
+
+		if ( empty( $loader['cache_used'] ) ) {
+			return [
+				'severity' => 'error',
+				'badge'    => __( 'Cache present but not used', 'tenup-framework' ),
+				'note'     => __( 'A cache file exists but is not being used. This is unexpected — check TENUP_FRAMEWORK_DISABLE_CLASS_CACHE.', 'tenup-framework' ),
+			];
+		}
+
+		return [
+			'severity' => 'ok',
+			'badge'    => __( 'Cache in use', 'tenup-framework' ),
+			'note'     => '',
+		];
+	}
+
+	/**
+	 * A short description of the cache file on disk (age and size), or a placeholder when none.
 	 *
 	 * @param array $loader The loader record.
 	 *
 	 * @return string
 	 */
-	protected static function cache_status_label( array $loader ): string {
-		if ( ! empty( $loader['cache_disabled'] ) ) {
-			return __( 'Disabled — discovering live (TENUP_FRAMEWORK_DISABLE_CLASS_CACHE).', 'tenup-framework' );
-		}
-
-		if ( empty( $loader['cache_exists'] ) ) {
-			return __( 'No cache file — discovering live on every request.', 'tenup-framework' );
-		}
-
+	protected static function cache_detail( array $loader ): string {
 		$cache_file = self::to_string( $loader['cache_file'] ?? '' );
-		$mtime      = file_exists( $cache_file ) ? (int) filemtime( $cache_file ) : 0;
-		$size       = file_exists( $cache_file ) ? (int) filesize( $cache_file ) : 0;
 
-		$used = empty( $loader['cache_used'] )
-			? __( 'present but not used', 'tenup-framework' )
-			: __( 'in use', 'tenup-framework' );
+		if ( '' === $cache_file || ! file_exists( $cache_file ) ) {
+			return __( 'No cache file on disk.', 'tenup-framework' );
+		}
+
+		$mtime = (int) filemtime( $cache_file );
+		$size  = (int) filesize( $cache_file );
 
 		return sprintf(
-			/* translators: 1: in-use status, 2: relative age, 3: file size. */
-			__( 'Cache %1$s — built %2$s ago, %3$s.', 'tenup-framework' ),
-			$used,
+			/* translators: 1: relative age, 2: file size. */
+			__( 'Built %1$s ago · %2$s', 'tenup-framework' ),
 			$mtime ? human_time_diff( $mtime ) : __( 'unknown time', 'tenup-framework' ),
 			size_format( $size )
 		);
+	}
+
+	/**
+	 * Output the page's scoped styles once.
+	 *
+	 * @return void
+	 */
+	protected static function render_styles() {
+		echo '<style>
+			.tenup-loaders .tenup-loader { max-width: 60em; margin: 1.25em 0; padding: .5em 1.25em 1.25em; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; }
+			.tenup-loaders .tenup-loader__head { display: flex; align-items: center; gap: .75em; flex-wrap: wrap; }
+			.tenup-loaders .tenup-loader__head h2 { margin: .5em 0; }
+			.tenup-loaders .tenup-badge { display: inline-block; padding: .15em .7em; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid; }
+			.tenup-loaders .tenup-badge--ok { background: #edfaef; color: #00450c; border-color: #00a32a; }
+			.tenup-loaders .tenup-badge--info { background: #f0f6fc; color: #0a4b78; border-color: #72aee6; }
+			.tenup-loaders .tenup-badge--warn { background: #fcf9e8; color: #614b00; border-color: #dba617; }
+			.tenup-loaders .tenup-badge--error { background: #fcf0f1; color: #8a1f11; border-color: #d63638; }
+			.tenup-loaders .tenup-notice { margin: .75em 0; padding: .6em .9em; border-left: 4px solid #72aee6; background: #f6f7f7; }
+			.tenup-loaders .tenup-notice--ok { border-left-color: #00a32a; }
+			.tenup-loaders .tenup-notice--info { border-left-color: #72aee6; }
+			.tenup-loaders .tenup-notice--warn { border-left-color: #dba617; }
+			.tenup-loaders .tenup-notice--error { border-left-color: #d63638; }
+			.tenup-loaders .tenup-loader__meta { margin: .75em 0; }
+			.tenup-loaders .tenup-loader__meta th { width: 14em; }
+			.tenup-loaders .tenup-loader__classes { margin: .5em 0; }
+			.tenup-loaders .tenup-loader__classes summary { cursor: pointer; font-weight: 600; padding: .4em 0; }
+			.tenup-loaders .tenup-loader__class-table { margin: .5em 0 1em; }
+			.tenup-loaders .tenup-loader__actions { margin: .75em 0 0; }
+		</style>';
 	}
 
 	/**
