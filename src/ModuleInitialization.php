@@ -9,10 +9,13 @@ declare( strict_types = 1 );
 
 namespace TenupFramework;
 
+use Composer\InstalledVersions;
 use ReflectionClass;
 use Spatie\StructureDiscoverer\Cache\FileDiscoverCacheDriver;
 use Spatie\StructureDiscoverer\Data\DiscoveredStructure;
 use Spatie\StructureDiscoverer\Discover;
+use TenupFramework\Cache\ReadOnlyFileDiscoverCacheDriver;
+use TenupFramework\Debug\LoaderDebug;
 
 /**
  * ModuleInitialization class.
@@ -20,6 +23,32 @@ use Spatie\StructureDiscoverer\Discover;
  * @package TenupFramework
  */
 class ModuleInitialization {
+
+	/**
+	 * The directory name, within the discovery directory, that holds the class cache.
+	 *
+	 * @var string
+	 */
+	public const CACHE_DIR_NAME = 'class-loader-cache';
+
+	/**
+	 * The class cache filename.
+	 *
+	 * Bumping this value invalidates caches written by older framework versions: the
+	 * runtime looks for a filename the previous build never produced, so a stale file
+	 * is simply ignored until a fresh build regenerates it. The old file is harmless
+	 * cruft that a clean deploy clears.
+	 *
+	 * @var string
+	 */
+	public const CACHE_FILENAME = 'class-loader-cache-v2.php';
+
+	/**
+	 * The Spatie cache identifier.
+	 *
+	 * @var string
+	 */
+	public const CACHE_ID = 'TenupFramework';
 
 	/**
 	 * The class instance.
@@ -64,18 +93,23 @@ class ModuleInitialization {
 	public function get_classes( $dir ) {
 		$this->directory_check( $dir );
 
-		// Get all classes from this directory and its subdirectories.
-		$class_finder = Discover::in( $dir );
-		// Only fetch classes.
-		$class_finder->classes();
-		// Disable inheritance chain resolution
-		$class_finder->withoutChains();
+		$class_finder = $this->build_discoverer( $dir );
 
-		// If we are in production or staging, cache the class loader to improve performance.
-		if ( $this->should_use_cache() ) {
+		// The runtime only ever reads a pre-built cache; it never writes one. Caching is
+		// therefore opt-in: with no cache file present we discover live on every request,
+		// which is the correct default. A cache is produced at build time via the
+		// `tenup-framework-generate-class-cache` command and shipped as a build artefact.
+		//
+		// Define TENUP_FRAMEWORK_DISABLE_CLASS_CACHE to ignore any shipped cache and always
+		// discover live (useful for debugging).
+		if ( ! $this->cache_disabled() ) {
 			$class_finder->withCache(
-				__NAMESPACE__,
-				new FileDiscoverCacheDriver( $dir . '/class-loader-cache' )
+				self::CACHE_ID,
+				new ReadOnlyFileDiscoverCacheDriver(
+					$this->get_cache_directory( $dir ),
+					false,
+					self::CACHE_FILENAME
+				)
 			);
 		}
 
@@ -86,24 +120,155 @@ class ModuleInitialization {
 	}
 
 	/**
-	 * Should we set up and use the class cache?
+	 * Generate the class cache for a directory and write it to disk.
+	 *
+	 * This is the build-time counterpart to get_classes(): it is the only place the
+	 * framework writes the cache, and it deliberately makes no WordPress calls so it can
+	 * run from a plain CLI script during CI without bootstrapping WordPress. The resulting
+	 * file is then deployed as a build artefact and read (never rewritten) at runtime.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return array<string> The discovered class names that were cached.
+	 */
+	public function generate_cache( $dir = '' ) {
+		$this->directory_check( $dir );
+
+		$class_finder = $this->build_discoverer( $dir );
+
+		$class_finder->withCache(
+			self::CACHE_ID,
+			new FileDiscoverCacheDriver(
+				$this->get_cache_directory( $dir ),
+				false,
+				self::CACHE_FILENAME
+			)
+		);
+
+		// cache() forces a fresh discovery and overwrites any existing cache file, so a
+		// regenerate always reflects the current code rather than a previous build.
+		$classes = $class_finder->cache();
+
+		return array_filter( $classes, fn( $cl ) => is_string( $cl ) );
+	}
+
+	/**
+	 * Build a discoverer configured the same way for both reading and generating, so the
+	 * two paths can never drift apart.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return Discover
+	 */
+	protected function build_discoverer( $dir ): Discover {
+		// Get all classes from this directory and its subdirectories.
+		$class_finder = Discover::in( $dir );
+		// Only fetch classes.
+		$class_finder->classes();
+		// Disable inheritance chain resolution.
+		$class_finder->withoutChains();
+
+		return $class_finder;
+	}
+
+	/**
+	 * Get the absolute path to the cache directory for a discovery directory.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return string
+	 */
+	protected function get_cache_directory( $dir ): string {
+		return rtrim( $dir, '/' ) . '/' . self::CACHE_DIR_NAME;
+	}
+
+	/**
+	 * Whether class caching has been explicitly disabled.
+	 *
+	 * When true, the runtime ignores any shipped cache and discovers classes live on every
+	 * request. Useful for debugging a suspected stale or incorrect cache.
 	 *
 	 * @return bool
 	 */
-	protected function should_use_cache(): bool {
-		if ( defined( 'VIP_GO_APP_ENVIRONMENT' ) ) {
-			return false;
+	protected function cache_disabled(): bool {
+		return defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE;
+	}
+
+	/**
+	 * Discover the classes in a directory live, ignoring any cache.
+	 *
+	 * Used by the admin-only debug page's on-demand staleness check to compare what is actually
+	 * on disk against what the cache loaded.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return array<string>
+	 */
+	public function discover_live( $dir ) {
+		$this->directory_check( $dir );
+
+		return array_values( array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) ) );
+	}
+
+	/**
+	 * Hand loader metadata to the admin-only debug tooling.
+	 *
+	 * Front-end requests do nothing here: the data is only viewable in the admin, so it is only
+	 * gathered there. The is_admin() check happens before LoaderDebug is referenced, so that
+	 * class never autoloads on the front end.
+	 *
+	 * @param string        $dir     The directory that was discovered.
+	 * @param array<string> $classes The discovered class names.
+	 *
+	 * @return void
+	 */
+	protected function record_loader_debug( $dir, array $classes ) {
+		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) {
+			return;
 		}
 
-		if ( ! in_array( wp_get_environment_type(), [ 'production', 'staging' ], true ) ) {
-			return false;
+		$cache_file   = $this->get_cache_directory( $dir ) . '/' . self::CACHE_FILENAME;
+		$cache_exists = file_exists( $cache_file );
+		$disabled     = $this->cache_disabled();
+
+		LoaderDebug::record(
+			[
+				'directory'      => $dir,
+				'cache_file'     => $cache_file,
+				'cache_exists'   => $cache_exists,
+				'cache_used'     => $cache_exists && ! $disabled,
+				'cache_disabled' => $disabled,
+				'classes'        => $classes,
+				'version'        => $this->framework_version(),
+				'reference'      => $this->framework_reference(),
+			]
+		);
+	}
+
+	/**
+	 * The installed framework version, or an empty string when it cannot be determined.
+	 *
+	 * @return string
+	 */
+	protected function framework_version(): string {
+		if ( class_exists( InstalledVersions::class ) && InstalledVersions::isInstalled( '10up/wp-framework' ) ) {
+			return (string) InstalledVersions::getPrettyVersion( '10up/wp-framework' );
 		}
 
-		if ( defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE ) {
-			return false;
+		return '';
+	}
+
+	/**
+	 * The installed framework reference (git hash), or an empty string when unavailable.
+	 *
+	 * @return string
+	 */
+	protected function framework_reference(): string {
+		if ( class_exists( InstalledVersions::class ) && InstalledVersions::isInstalled( '10up/wp-framework' ) ) {
+			return (string) InstalledVersions::getReference( '10up/wp-framework' );
 		}
 
-		return true;
+		return '';
 	}
 
 	/**
@@ -138,8 +303,12 @@ class ModuleInitialization {
 	public function init_classes( $dir = '' ) {
 		$this->directory_check( $dir );
 
+		$classes = $this->get_classes( $dir );
+
+		$this->record_loader_debug( $dir, $classes );
+
 		$load_class_order = [];
-		foreach ( $this->get_classes( $dir ) as $class ) {
+		foreach ( $classes as $class ) {
 			// Create a slug for the class name.
 			$slug = $this->slugify_class_name( $class );
 
