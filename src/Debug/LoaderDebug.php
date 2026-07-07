@@ -253,6 +253,8 @@ class LoaderDebug {
 		self::render_row( __( 'Framework version', 'tenup-framework' ), self::version_label( $loader ) );
 		self::render_row( __( 'Cache file', 'tenup-framework' ), '' !== $cache_file ? $cache_file : '—' );
 		self::render_row( __( 'Cache detail', 'tenup-framework' ), self::cache_detail( $loader ) );
+		self::render_row( __( 'Discovery time', 'tenup-framework' ), self::format_duration( $loader['discovery_seconds'] ?? null ) );
+		self::render_row( __( 'Class lookup time', 'tenup-framework' ), self::format_duration( $loader['lookup_seconds'] ?? null ) );
 		echo '</tbody></table>';
 
 		echo '<details class="tenup-loader__classes">';
@@ -340,18 +342,27 @@ class LoaderDebug {
 			return;
 		}
 
-		$live    = ModuleInitialization::instance()->discover_live( $directory );
+		$live_start   = microtime( true );
+		$live         = ModuleInitialization::instance()->discover_live( $directory );
+		$live_seconds = microtime( true ) - $live_start;
+
 		$loaded  = array_values( $classes );
 		$removed = array_diff( $loaded, $live ); // In cache but no longer on disk.
 		$added   = array_diff( $live, $loaded ); // On disk but missing from the cache.
 
+		$timing = sprintf(
+			/* translators: %s: formatted duration. */
+			__( 'Live discovery took %s.', 'tenup-framework' ),
+			self::format_duration( $live_seconds )
+		);
+
 		if ( empty( $removed ) && empty( $added ) ) {
-			echo '<div class="tenup-notice tenup-notice--ok"><strong>' . esc_html__( 'Up to date — the cache matches a live scan.', 'tenup-framework' ) . '</strong></div>';
+			echo '<div class="tenup-notice tenup-notice--ok"><strong>' . esc_html__( 'Up to date — the cache matches a live scan.', 'tenup-framework' ) . '</strong> ' . esc_html( $timing ) . '</div>';
 			return;
 		}
 
 		echo '<div class="tenup-notice tenup-notice--error">';
-		echo '<strong>' . esc_html__( 'Stale — the cache differs from a live scan.', 'tenup-framework' ) . '</strong>';
+		echo '<strong>' . esc_html__( 'Stale — the cache differs from a live scan.', 'tenup-framework' ) . '</strong> ' . esc_html( $timing );
 
 		if ( ! empty( $added ) ) {
 			echo '<p>' . esc_html__( 'On disk but missing from the cache:', 'tenup-framework' ) . '</p><ul>';
@@ -383,6 +394,37 @@ class LoaderDebug {
 	 */
 	protected static function to_string( $value ): string {
 		return is_scalar( $value ) ? (string) $value : '';
+	}
+
+	/**
+	 * Format a duration in seconds for display, choosing a sensible unit. Values arrive through
+	 * a filter as mixed, so anything non-numeric or non-positive renders as a placeholder.
+	 *
+	 * @param mixed $seconds The duration in seconds.
+	 *
+	 * @return string
+	 */
+	protected static function format_duration( $seconds ): string {
+		$seconds = is_numeric( $seconds ) ? (float) $seconds : 0.0;
+
+		if ( $seconds <= 0.0 ) {
+			return '—';
+		}
+
+		$milliseconds = $seconds * 1000;
+
+		if ( $milliseconds < 1 ) {
+			/* translators: %s: duration in milliseconds. */
+			return sprintf( __( '%s ms', 'tenup-framework' ), number_format( $milliseconds, 3 ) );
+		}
+
+		if ( $milliseconds < 1000 ) {
+			/* translators: %s: duration in milliseconds. */
+			return sprintf( __( '%s ms', 'tenup-framework' ), number_format( $milliseconds, 2 ) );
+		}
+
+		/* translators: %s: duration in seconds. */
+		return sprintf( __( '%s s', 'tenup-framework' ), number_format( $seconds, 2 ) );
 	}
 
 	/**

@@ -217,12 +217,14 @@ class ModuleInitialization {
 	 * gathered there. The is_admin() check happens before LoaderDebug is referenced, so that
 	 * class never autoloads on the front end.
 	 *
-	 * @param string        $dir     The directory that was discovered.
-	 * @param array<string> $classes The discovered class names.
+	 * @param string        $dir               The directory that was discovered.
+	 * @param array<string> $classes           The discovered class names.
+	 * @param float         $discovery_seconds Seconds spent obtaining the class list (cache read or live scan).
+	 * @param float         $lookup_seconds    Seconds spent reflecting, instantiating and registering the classes.
 	 *
 	 * @return void
 	 */
-	protected function record_loader_debug( $dir, array $classes ) {
+	protected function record_loader_debug( $dir, array $classes, float $discovery_seconds = 0.0, float $lookup_seconds = 0.0 ) {
 		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) {
 			return;
 		}
@@ -233,14 +235,16 @@ class ModuleInitialization {
 
 		LoaderDebug::record(
 			[
-				'directory'      => $dir,
-				'cache_file'     => $cache_file,
-				'cache_exists'   => $cache_exists,
-				'cache_used'     => $cache_exists && ! $disabled,
-				'cache_disabled' => $disabled,
-				'classes'        => $classes,
-				'version'        => $this->framework_version(),
-				'reference'      => $this->framework_reference(),
+				'directory'         => $dir,
+				'cache_file'        => $cache_file,
+				'cache_exists'      => $cache_exists,
+				'cache_used'        => $cache_exists && ! $disabled,
+				'cache_disabled'    => $disabled,
+				'classes'           => $classes,
+				'version'           => $this->framework_version(),
+				'reference'         => $this->framework_reference(),
+				'discovery_seconds' => $discovery_seconds,
+				'lookup_seconds'    => $lookup_seconds,
 			]
 		);
 	}
@@ -303,9 +307,14 @@ class ModuleInitialization {
 	public function init_classes( $dir = '' ) {
 		$this->directory_check( $dir );
 
-		$classes = $this->get_classes( $dir );
+		// Time discovery (a cache read when a cache is present, a live filesystem scan
+		// otherwise) separately from the reflection/instantiation work below, so the debug
+		// page can show where the request's time actually goes.
+		$discovery_start   = microtime( true );
+		$classes           = $this->get_classes( $dir );
+		$discovery_seconds = microtime( true ) - $discovery_start;
 
-		$this->record_loader_debug( $dir, $classes );
+		$lookup_start = microtime( true );
 
 		$load_class_order = [];
 		foreach ( $classes as $class ) {
@@ -366,6 +375,10 @@ class ModuleInitialization {
 				}
 			}
 		}
+
+		$lookup_seconds = microtime( true ) - $lookup_start;
+
+		$this->record_loader_debug( $dir, $classes, $discovery_seconds, $lookup_seconds );
 	}
 
 	/**

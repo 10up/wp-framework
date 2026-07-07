@@ -42,11 +42,14 @@ class ModuleInitializationTest extends TestCase {
 	 */
 	public function test_it_can_find_classes_to_register() {
 		$class = \TenupFramework\ModuleInitialization::instance();
-		$class->init_classes( dirname( __DIR__, 1 ) . '/src/' );
+		$class->init_classes( dirname( __DIR__, 1 ) . '/fixtures/classes' );
 		$classes = $class->get_all_classes();
 
-		// Check that we have only classes that extend Module and more than 0.
-		$this->assertGreaterThanOrEqual( 0, count( $classes ) );
+		// The registered set is non-empty and contains only ModuleInterface implementations.
+		$this->assertNotEmpty( $classes );
+		foreach ( $classes as $registered ) {
+			$this->assertInstanceOf( \TenupFramework\ModuleInterface::class, $registered );
+		}
 	}
 
 	/**
@@ -272,6 +275,33 @@ class ModuleInitializationTest extends TestCase {
 		$this->assertCount( 1, $loaders );
 		$this->assertSame( $dir, $loaders[0]['directory'] );
 		$this->assertContains( 'TenupTmp\\Widget', $loaders[0]['classes'] );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * In the admin, init_classes() records how long discovery and class lookup took.
+	 *
+	 * @return void
+	 */
+	public function test_init_classes_records_timing_in_admin() {
+		when( 'is_admin' )->justReturn( true );
+		when( 'add_action' )->justReturn( true );
+		when( 'add_filter' )->justReturn( true );
+		when( 'apply_filters' )->returnArg( 2 );
+
+		$dir = $this->make_temp_class_dir();
+
+		\TenupFramework\ModuleInitialization::instance()->init_classes( $dir );
+
+		$loaders = \TenupFramework\Debug\LoaderDebug::get_loaders();
+		$this->assertCount( 1, $loaders );
+		$this->assertArrayHasKey( 'discovery_seconds', $loaders[0] );
+		$this->assertArrayHasKey( 'lookup_seconds', $loaders[0] );
+		$this->assertIsFloat( $loaders[0]['discovery_seconds'] );
+		$this->assertIsFloat( $loaders[0]['lookup_seconds'] );
+		$this->assertGreaterThanOrEqual( 0.0, $loaders[0]['discovery_seconds'] );
+		$this->assertGreaterThanOrEqual( 0.0, $loaders[0]['lookup_seconds'] );
 
 		$this->remove_temp_dir( $dir );
 	}
