@@ -72,7 +72,26 @@ trait FrameworkTestSetup {
 		stubEscapeFunctions();
 		stubTranslationFunctions();
 
+		$this->reset_module_initialization();
 		$this->reset_loader_debug();
+	}
+
+	/**
+	 * Reset the ModuleInitialization singleton so its accumulated `$classes` do not leak between
+	 * tests. The suite is not process-isolated (the trait-level annotation does not take effect),
+	 * so without this a class registered in one test would be seen as "already initialized" in a
+	 * later one.
+	 *
+	 * @return void
+	 */
+	protected function reset_module_initialization(): void {
+		if ( ! class_exists( \TenupFramework\ModuleInitialization::class ) ) {
+			return;
+		}
+
+		$instance = ( new \ReflectionClass( \TenupFramework\ModuleInitialization::class ) )->getProperty( 'instance' );
+		$instance->setAccessible( true );
+		$instance->setValue( null, null );
 	}
 
 	/**

@@ -371,7 +371,10 @@ class LoaderDebugTest extends TestCase {
 	public function duration_provider(): array {
 		return [
 			'zero'         => [ 0.0, '—' ],
+			'negative'     => [ -0.005, '—' ],
 			'non-numeric'  => [ 'nope', '—' ],
+			'not-a-number' => [ NAN, '—' ],
+			'infinite'     => [ INF, '—' ],
 			'sub-milli'    => [ 0.0004, '0.400 ms' ],
 			'milliseconds' => [ 0.0123, '12.30 ms' ],
 			'seconds'      => [ 1.5, '1.50 s' ],

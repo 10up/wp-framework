@@ -407,7 +407,9 @@ class LoaderDebug {
 	protected static function format_duration( $seconds ): string {
 		$seconds = is_numeric( $seconds ) ? (float) $seconds : 0.0;
 
-		if ( $seconds <= 0.0 ) {
+		// Values arrive through the cross-copy filter as mixed, so reject non-positive and
+		// non-finite (INF/NAN) input rather than rendering "inf s" / "nan s".
+		if ( $seconds <= 0.0 || ! is_finite( $seconds ) ) {
 			return '—';
 		}
 
