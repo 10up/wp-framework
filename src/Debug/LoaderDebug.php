@@ -88,6 +88,18 @@ class LoaderDebug {
 			return;
 		}
 
+		// Keep one record per directory: if init_classes() runs more than once for the same
+		// directory in a request, the latest call (with fresh timing) replaces the earlier one
+		// rather than producing a duplicate card.
+		$directory = isset( $record['directory'] ) && is_string( $record['directory'] ) ? $record['directory'] : '';
+		foreach ( self::$loaders as $index => $existing ) {
+			if ( ( $existing['directory'] ?? null ) === $directory ) {
+				self::$loaders[ $index ] = $record;
+				self::boot();
+				return;
+			}
+		}
+
 		self::$loaders[] = $record;
 
 		self::boot();

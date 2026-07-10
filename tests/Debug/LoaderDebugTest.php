@@ -228,6 +228,8 @@ class LoaderDebugTest extends TestCase {
 		$this->assertStringContainsString( 'Stale', $output );
 		$this->assertStringContainsString( 'TenupTmp\\Widget', $output ); // On disk, missing from cache.
 		$this->assertStringContainsString( 'TenupTmp\\Old', $output );    // In cache, gone from disk.
+		// The drift notice also reports a real, positive live-discovery duration.
+		$this->assertMatchesRegularExpression( '/Live discovery took \d[\d.,]* (ms|s)\./', $output );
 	}
 
 	/**
@@ -256,7 +258,9 @@ class LoaderDebugTest extends TestCase {
 		$this->remove_temp_dir( $dir );
 
 		$this->assertStringContainsString( 'Up to date', $output );
-		$this->assertStringContainsString( 'Live discovery took', $output );
+		// Require a real, positive duration — this must NOT match the "Live discovery took —."
+		// placeholder that format_duration() emits for a non-positive/absent value.
+		$this->assertMatchesRegularExpression( '/Live discovery took \d[\d.,]* (ms|s)\./', $output );
 	}
 
 	/**

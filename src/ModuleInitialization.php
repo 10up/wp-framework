@@ -113,10 +113,18 @@ class ModuleInitialization {
 			);
 		}
 
-		$classes = array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
+		try {
+			$discovered = $class_finder->get();
+		} catch ( \Throwable $e ) {
+			// A shipped cache file that is corrupt or truncated — a partial deploy, an
+			// interrupted build, a half-written rsync — would otherwise fatal on every request
+			// (the cache is executable PHP loaded with `require`). Fall back to a fresh live
+			// discovery so the site keeps working, uncached, until the cache is rebuilt. This
+			// is the same spirit as issue #30: a bad cache must never take the site down.
+			$discovered = $this->build_discoverer( $dir )->get();
+		}
 
-		// Return the classes
-		return $classes;
+		return array_filter( $discovered, fn( $cl ) => is_string( $cl ) );
 	}
 
 	/**
@@ -229,6 +237,13 @@ class ModuleInitialization {
 			return;
 		}
 
+		// is_admin() is also true for admin-ajax.php. The debug page is a normal admin GET that
+		// re-runs discovery and records afresh, so recording on ajax requests is pure waste
+		// (often triggered from the front end). Skip them.
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+			return;
+		}
+
 		$cache_file   = $this->get_cache_directory( $dir ) . '/' . self::CACHE_FILENAME;
 		$cache_exists = file_exists( $cache_file );
 		$disabled     = $this->cache_disabled();
@@ -309,12 +324,13 @@ class ModuleInitialization {
 
 		// Time discovery (a cache read when a cache is present, a live filesystem scan
 		// otherwise) separately from the reflection/instantiation work below, so the debug
-		// page can show where the request's time actually goes.
-		$discovery_start   = microtime( true );
+		// page can show where the request's time actually goes. hrtime() is monotonic, so an
+		// NTP adjustment mid-request cannot produce a negative or wildly wrong delta.
+		$discovery_start   = hrtime( true );
 		$classes           = $this->get_classes( $dir );
-		$discovery_seconds = microtime( true ) - $discovery_start;
+		$discovery_seconds = ( hrtime( true ) - $discovery_start ) / 1e9;
 
-		$lookup_start = microtime( true );
+		$lookup_start = hrtime( true );
 
 		$load_class_order = [];
 		foreach ( $classes as $class ) {
@@ -376,7 +392,7 @@ class ModuleInitialization {
 			}
 		}
 
-		$lookup_seconds = microtime( true ) - $lookup_start;
+		$lookup_seconds = ( hrtime( true ) - $lookup_start ) / 1e9;
 
 		$this->record_loader_debug( $dir, $classes, $discovery_seconds, $lookup_seconds );
 	}

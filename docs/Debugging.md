@@ -59,6 +59,15 @@ read-only runtime.
 The recording and the page are **admin-only**. On front-end requests nothing is recorded, no hooks
 are added, and the debug class is never even loaded.
 
+## Known limitations
+
+- **Per request** — the page shows loaders recorded on the current admin request. A plugin whose
+  `init_classes()` did not run on this request will not appear.
+- **Mixed framework versions render with the oldest UI** — when a mono-repo runs several framework
+  copies on different versions, the first copy to record a loader registers and renders the page,
+  so newer per-loader fields degrade to blank rather than showing. Aligning framework versions
+  across packages avoids this; the data itself is still aggregated correctly across all copies.
+
 ## Disabling it
 
 Enabled by default in the admin. Turn it off with either:
