@@ -12,7 +12,6 @@ namespace TenupFramework;
 use Composer\InstalledVersions;
 use ReflectionClass;
 use Spatie\StructureDiscoverer\Cache\FileDiscoverCacheDriver;
-use Spatie\StructureDiscoverer\Data\DiscoveredStructure;
 use Spatie\StructureDiscoverer\Discover;
 use TenupFramework\Cache\ReadOnlyFileDiscoverCacheDriver;
 use TenupFramework\Debug\LoaderDebug;
