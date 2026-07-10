@@ -386,6 +386,32 @@ class LoaderDebugTest extends TestCase {
 	}
 
 	/**
+	 * cache_detail() renders "Built <age> ago · <size> · <utc>" with the build time in UTC.
+	 *
+	 * @return void
+	 */
+	public function test_cache_detail_shows_size_and_utc_build_time() {
+		when( 'human_time_diff' )->justReturn( '5 minutes' );
+		when( 'size_format' )->alias( static fn( $bytes ) => $bytes . ' B' );
+
+		$dir       = $this->make_temp_class_dir();
+		$cache_dir = $dir . '/class-loader-cache';
+		mkdir( $cache_dir );
+		$cache_file = $cache_dir . '/class-loader-cache-v2.php';
+		file_put_contents( $cache_file, '<?php return array();' );
+
+		$detail = $this->invoke_protected( 'cache_detail', [ [ 'cache_file' => $cache_file ] ] );
+
+		$this->assertStringContainsString( 'Built 5 minutes ago', $detail );
+		// The absolute build time is the file mtime rendered in UTC as the trailing segment.
+		$expected_utc = gmdate( 'Y-m-d H:i:s', (int) filemtime( $cache_file ) ) . ' UTC';
+		$this->assertStringContainsString( '· ' . $expected_utc, $detail );
+		$this->assertMatchesRegularExpression( '/·\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$/', $detail );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
 	 * Invoke a protected static method on LoaderDebug via reflection.
 	 *
 	 * @param string       $method The method name.

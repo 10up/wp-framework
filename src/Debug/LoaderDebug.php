@@ -573,7 +573,8 @@ class LoaderDebug {
 	}
 
 	/**
-	 * A short description of the cache file on disk (age and size), or a placeholder when none.
+	 * A short description of the cache file on disk — relative age, size, and the absolute build
+	 * time in UTC — or a placeholder when none. Format: "Built <age> ago · <size> (<utc>)".
 	 *
 	 * @param array $loader The loader record.
 	 *
@@ -589,11 +590,20 @@ class LoaderDebug {
 		$mtime = (int) filemtime( $cache_file );
 		$size  = (int) filesize( $cache_file );
 
+		if ( ! $mtime ) {
+			return sprintf(
+				/* translators: %s: file size. */
+				__( 'Built at an unknown time · %s', 'tenup-framework' ),
+				size_format( $size )
+			);
+		}
+
 		return sprintf(
-			/* translators: 1: relative age, 2: file size. */
-			__( 'Built %1$s ago · %2$s', 'tenup-framework' ),
-			$mtime ? human_time_diff( $mtime ) : __( 'unknown time', 'tenup-framework' ),
-			size_format( $size )
+			/* translators: 1: relative age (e.g. "5 minutes"); 2: file size; 3: absolute build time in UTC. */
+			__( 'Built %1$s ago · %2$s · %3$s', 'tenup-framework' ),
+			human_time_diff( $mtime ),
+			size_format( $size ),
+			gmdate( 'Y-m-d H:i:s', $mtime ) . ' UTC'
 		);
 	}
 
