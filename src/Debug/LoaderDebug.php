@@ -614,7 +614,7 @@ class LoaderDebug {
 	 */
 	protected static function render_styles() {
 		echo '<style>
-			.tenup-loaders .tenup-loader { max-width: 60em; margin: 1.25em 0; padding: .5em 1.25em 1.25em; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; }
+			.tenup-loaders .tenup-loader { width: fit-content; min-width: min(60em, 100%); max-width: 100%; margin: 1.25em 0; padding: .5em 1.25em 1.25em; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; }
 			.tenup-loaders .tenup-loader__head { display: flex; align-items: center; gap: .75em; flex-wrap: wrap; }
 			.tenup-loaders .tenup-loader__head h2 { margin: .5em 0; }
 			.tenup-loaders .tenup-badge { display: inline-block; padding: .15em .7em; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid; }
@@ -632,6 +632,7 @@ class LoaderDebug {
 			.tenup-loaders .tenup-loader__classes { margin: .5em 0; }
 			.tenup-loaders .tenup-loader__classes summary { cursor: pointer; font-weight: 600; padding: .4em 0; }
 			.tenup-loaders .tenup-loader__class-table { margin: .5em 0 1em; }
+			.tenup-loaders .tenup-loader__meta td code, .tenup-loaders .tenup-loader__class-table td code { overflow-wrap: anywhere; }
 			.tenup-loaders .tenup-loader__actions { margin: .75em 0 0; }
 		</style>';
 	}
