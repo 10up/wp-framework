@@ -69,8 +69,8 @@ class Emoji implements ModuleInterface {
 	 *
 	 * @link https://developer.wordpress.org/reference/hooks/tiny_mce_plugins/
 	 *
-	 * @param  array $plugins An array of default TinyMCE plugins.
-	 * @return array          An array of TinyMCE plugins, without wpemoji.
+	 * @param  array<int, string> $plugins An array of default TinyMCE plugins.
+	 * @return array<int, string>          An array of TinyMCE plugins, without wpemoji.
 	 */
 	public function disable_emojis_tinymce( array $plugins ): array {
 		if ( in_array( 'wpemoji', $plugins, true ) ) {
@@ -85,16 +85,26 @@ class Emoji implements ModuleInterface {
 	 *
 	 * @link https://developer.wordpress.org/reference/hooks/emoji_svg_url/
 	 *
-	 * @param  array  $urls          URLs to print for resource hints.
-	 * @param  string $relation_type The relation type the URLs are printed for.
-	 * @return array                 Difference between the two arrays.
+	 * Typed for the common case of a plain list of URL strings. The `wp_resource_hints`
+	 * contract also permits an entry to be an array of link attributes; array_diff() below
+	 * would coerce such an entry to string and warn. No core or common plugin path produces
+	 * one before this callback runs, so the narrower type documents the assumption rather
+	 * than widening every caller for a case that does not occur in practice.
+	 *
+	 * @param  array<int, string> $urls          URLs to print for resource hints.
+	 * @param  string             $relation_type The relation type the URLs are printed for.
+	 * @return array<int, string>                Difference between the two arrays.
 	 */
 	public function disable_emoji_dns_prefetch( array $urls, string $relation_type ): array {
 		if ( 'dns-prefetch' === $relation_type ) {
 			/** This filter is documented in wp-includes/formatting.php */
 			$emoji_svg_url = apply_filters( 'emoji_svg_url', 'https://s.w.org/images/core/emoji/2/svg/' );
 
-			$urls = array_values( array_diff( $urls, [ $emoji_svg_url ] ) );
+			// The filter can return anything. Only a string names a URL to remove; for any
+			// other value there is nothing to take out of the hints, so leave them untouched.
+			if ( is_string( $emoji_svg_url ) ) {
+				$urls = array_values( array_diff( $urls, [ $emoji_svg_url ] ) );
+			}
 		}
 
 		return $urls;

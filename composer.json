@@ -33,7 +33,7 @@
         }
     },
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.3",
         "spatie/php-structure-discoverer": "^2.2"
     },
     "require-dev": {
@@ -44,7 +44,6 @@
         "php-stubs/wp-cli-stubs": "^2.11",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "10up/phpcs-composer": "^3.0",
-        "phpcompatibility/php-compatibility": "dev-develop as 9.99.99",
         "phpunit/php-code-coverage": "^9.2",
         "slevomat/coding-standard": "^8.15",
         "rector/rector": "^2.0",

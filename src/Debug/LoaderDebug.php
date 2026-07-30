@@ -33,45 +33,37 @@ class LoaderDebug {
 
 	/**
 	 * The admin page slug.
-	 *
-	 * @var string
 	 */
-	public const PAGE_SLUG = 'tenup-framework-loaders';
+	public const string PAGE_SLUG = 'tenup-framework-loaders';
 
 	/**
 	 * The shared, scope-independent aggregation filter.
-	 *
-	 * @var string
 	 */
-	public const FILTER = 'tenup_framework_debug_loaders';
+	public const string FILTER = 'tenup_framework_debug_loaders';
 
 	/**
 	 * The capability required to view the page.
-	 *
-	 * @var string
 	 */
-	public const CAPABILITY = 'manage_options';
+	public const string CAPABILITY = 'manage_options';
 
 	/**
 	 * The nonce action for the on-demand staleness check.
-	 *
-	 * @var string
 	 */
-	public const CHECK_NONCE = 'tenup_framework_loader_check';
+	public const string CHECK_NONCE = 'tenup_framework_loader_check';
 
 	/**
 	 * Loader records collected for this framework copy.
 	 *
 	 * @var array<int, array<string, mixed>>
 	 */
-	protected static $loaders = [];
+	protected static array $loaders = [];
 
 	/**
 	 * Whether this copy has wired its WordPress hooks yet.
 	 *
 	 * @var bool
 	 */
-	protected static $booted = false;
+	protected static bool $booted = false;
 
 	/**
 	 * Record a loader and ensure the admin hooks are wired.
@@ -83,7 +75,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	public static function record( array $record ) {
+	public static function record( array $record ): void {
 		if ( ! self::is_enabled() ) {
 			return;
 		}
@@ -141,7 +133,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	protected static function boot() {
+	protected static function boot(): void {
 		if ( self::$booted ) {
 			return;
 		}
@@ -149,7 +141,7 @@ class LoaderDebug {
 
 		add_filter(
 			self::FILTER,
-			static function ( $loaders ) {
+			static function ( mixed $loaders ) {
 				return array_merge( (array) $loaders, self::$loaders );
 			}
 		);
@@ -169,7 +161,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	public static function register_page() {
+	public static function register_page(): void {
 		$title = __( 'WP Framework Loaders', 'tenup-framework' );
 
 		add_submenu_page(
@@ -187,7 +179,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	public static function render_page() {
+	public static function render_page(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'tenup-framework' ) );
 		}
@@ -224,12 +216,12 @@ class LoaderDebug {
 	/**
 	 * Render a single loader block.
 	 *
-	 * @param array  $loader The loader record.
-	 * @param string $check  The validated staleness-check token, if any.
+	 * @param array<array-key, mixed> $loader The loader record.
+	 * @param string                  $check  The validated staleness-check token, if any.
 	 *
 	 * @return void
 	 */
-	protected static function render_loader( array $loader, string $check ) {
+	protected static function render_loader( array $loader, string $check ): void {
 		$directory  = self::to_string( $loader['directory'] ?? '' );
 		$cache_file = self::to_string( $loader['cache_file'] ?? '' );
 		$classes    = isset( $loader['classes'] ) && is_array( $loader['classes'] )
@@ -293,7 +285,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	protected static function render_row( string $label, string $value ) {
+	protected static function render_row( string $label, string $value ): void {
 		echo '<tr><th scope="row" style="width:14em;">' . esc_html( $label ) . '</th><td><code>' . esc_html( $value ) . '</code></td></tr>';
 	}
 
@@ -304,7 +296,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	protected static function render_classes( array $classes ) {
+	protected static function render_classes( array $classes ): void {
 		if ( empty( $classes ) ) {
 			return;
 		}
@@ -333,7 +325,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	protected static function render_staleness( string $directory, array $classes, string $check ) {
+	protected static function render_staleness( string $directory, array $classes, string $check ): void {
 		if ( '' === $directory ) {
 			return;
 		}
@@ -404,7 +396,7 @@ class LoaderDebug {
 	 *
 	 * @return string
 	 */
-	protected static function to_string( $value ): string {
+	protected static function to_string( mixed $value ): string {
 		return is_scalar( $value ) ? (string) $value : '';
 	}
 
@@ -416,7 +408,7 @@ class LoaderDebug {
 	 *
 	 * @return string
 	 */
-	protected static function format_duration( $seconds ): string {
+	protected static function format_duration( mixed $seconds ): string {
 		$seconds = is_numeric( $seconds ) ? (float) $seconds : 0.0;
 
 		// Values arrive through the cross-copy filter as mixed, so reject non-positive and
@@ -510,7 +502,7 @@ class LoaderDebug {
 	/**
 	 * A label describing the framework version that recorded a loader.
 	 *
-	 * @param array $loader The loader record.
+	 * @param array<array-key, mixed> $loader The loader record.
 	 *
 	 * @return string
 	 */
@@ -536,7 +528,7 @@ class LoaderDebug {
 	 * Severity maps to the badge/notice colour. Note that running uncached is a valid default
 	 * (caching is opt-in), so it is surfaced as a warning to be noticeable, not as an error.
 	 *
-	 * @param array $loader The loader record.
+	 * @param array<array-key, mixed> $loader The loader record.
 	 *
 	 * @return array{severity: string, badge: string, note: string}
 	 */
@@ -584,7 +576,7 @@ class LoaderDebug {
 	 * A short description of the cache file on disk — relative age, size, and the absolute build
 	 * time in UTC — or a placeholder when none. Format: "Built <age> ago · <size> (<utc>)".
 	 *
-	 * @param array $loader The loader record.
+	 * @param array<array-key, mixed> $loader The loader record.
 	 *
 	 * @return string
 	 */
@@ -620,7 +612,7 @@ class LoaderDebug {
 	 *
 	 * @return void
 	 */
-	protected static function render_styles() {
+	protected static function render_styles(): void {
 		echo '<style>
 			.tenup-loaders .tenup-loader { width: fit-content; min-width: min(60em, 100%); max-width: 100%; margin: 1.25em 0; padding: .5em 1.25em 1.25em; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; }
 			.tenup-loaders .tenup-loader__head { display: flex; align-items: center; gap: .75em; flex-wrap: wrap; }

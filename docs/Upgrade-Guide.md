@@ -2,14 +2,97 @@
 
 ## Upgrading to 2.0
 
-2.0 is a **breaking release**. It changes how the class-loader cache works: the framework no
-longer generates the cache automatically at runtime. This page covers what changed, who is
-affected, and exactly what to do.
+2.0 is a **breaking release** with three independent breaking changes:
 
-For the background on *why*, see [issue #30](https://github.com/10up/wp-framework/issues/30) —
-the automatic runtime cache could go stale on a server and could only be cleared by hand.
+1. **PHP 8.3 is now the minimum.** Composer will refuse to install on 8.2. See below.
+2. **The class-loader cache no longer generates automatically at runtime.** For the background on
+   *why*, see [issue #30](https://github.com/10up/wp-framework/issues/30) — the automatic runtime
+   cache could go stale on a server and could only be cleared by hand.
+3. **`get_name()` on the post type and taxonomy base classes declares a narrower return type.**
+   Static-analysis only, no runtime change. See below.
 
-## Who is affected
+This page covers what changed, who is affected, and exactly what to do.
+
+## PHP 8.3 is required
+
+`composer require 10up/wp-framework:^2.0` fails on PHP 8.2 with an unsatisfiable platform
+requirement. There is no partial upgrade path and no flag to work around it: the package source
+contains typed class constants, which are a **parse error** on 8.2, so a forced install would
+fatal at autoload time rather than degrade.
+
+**What to do:** confirm every environment that runs your project — local, CI, staging,
+production — is on PHP 8.3 or newer before upgrading.
+
+```bash
+php -v                    # locally
+wp --info                 # on the server, via WP-CLI
+```
+
+If any environment is still on 8.2, stay on `^1.2` until it is upgraded. 1.2.x continues to
+support 8.2.
+
+> **Why the requirement moved back up.** 1.2.0 lowered the minimum from 8.3 to 8.2
+> ([#8](https://github.com/10up/wp-framework/pull/8)). 2.0 raises it again because the framework
+> now declares native types on every class constant, which PHP only allows from 8.3. If the 8.2
+> floor matters more to your projects than static type coverage does, open an issue — the
+> trade-off is worth discussing rather than assuming.
+
+## `get_name()` declares a narrower return type
+
+`AbstractPostType::get_name()` and `AbstractTaxonomy::get_name()` keep their native `: string`
+signature, but the documented contract is now:
+
+```php
+/**
+ * @return lowercase-string&non-empty-string
+ */
+abstract public function get_name(): string;
+```
+
+This states what WordPress has always required of a post type or taxonomy key: non-empty and
+lowercase. `register_post_type()` and `register_taxonomy()` reject anything else.
+
+**Nothing changes at runtime.** No method signature changed, so no subclass breaks and no
+behaviour differs. This only affects static analysis.
+
+### Are you affected?
+
+Only if you run PHPStan or Psalm over your own project **and** a `get_name()` implementation
+returns a value the analyser cannot prove is lowercase and non-empty.
+
+Not flagged — a literal is provably both:
+
+```php
+public function get_name(): string {
+    return 'landing_page';
+}
+```
+
+Flagged — nothing narrows `$name`:
+
+```php
+public function get_name(): string {
+    return get_option( 'my_cpt_slug' );   // could be any string, or not a string at all
+}
+```
+
+**Fix it where the value is built, not at the return:**
+
+```php
+public function get_name(): string {
+    $name = strtolower( (string) get_option( 'my_cpt_slug' ) );
+
+    return '' !== $name ? $name : 'landing_page';
+}
+```
+
+`strtolower()` gives the analyser `lowercase-string`, and the `'' !== $name` check gives
+`non-empty-string`, so the contract is satisfied.
+
+If an implementation was returning a mixed-case or empty key, WordPress was already rejecting it.
+The tightened contract surfaces an existing bug rather than creating a new one.
+
+## Who is affected by the cache change
 
 You are affected if, on 1.x, you relied on the cache being **built automatically in production
 or staging**. After upgrading, that no longer happens — the framework reads a pre-built cache if
@@ -107,6 +190,8 @@ Use the per-loader **staleness check** to confirm a shipped cache matches what's
 
 | 1.x | 2.0 |
 | --- | --- |
+| PHP 8.2+ | **PHP 8.3+** |
+| `get_name(): string` on the post type / taxonomy base classes | Same signature, contract narrowed to `lowercase-string&non-empty-string` (static analysis only) |
 | Cache written automatically at runtime (production/staging) | Cache produced at build time only; runtime reads, never writes |
 | `should_use_cache()` gates writing | Removed |
 | `VIP_GO_APP_ENVIRONMENT` skips caching | No effect (removed) |

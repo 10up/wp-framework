@@ -51,6 +51,12 @@ abstract class AbstractTaxonomy implements ModuleInterface {
 
 	/**
 	 * Get the taxonomy name.
+	 *
+	 * WordPress requires a taxonomy key to be a non-empty lowercase string, so the contract
+	 * states that rather than a bare string. Returning anything else is rejected by
+	 * register_taxonomy() at runtime.
+	 *
+	 * @return lowercase-string&non-empty-string
 	 */
 	abstract public function get_name(): string;
 

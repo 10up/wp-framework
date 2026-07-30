@@ -9,7 +9,7 @@
 - **Shared Functionality:** Provides commonly used abstract classes and utilities to reduce boilerplate code in WordPress projects.
 - **Extendability:** Built for easy extension. Engineers can subclass or override functionality as needed to tailor it to their projects.
 - **Centralized Updates:** Simplifies rolling out updates and new features across projects using this framework.
-- **Modern Standards:** Compatible with PHP 8.2+ and adheres to modern development practices.
+- **Modern Standards:** Compatible with PHP 8.3+ and adheres to modern development practices.
 
 ## Installation
 

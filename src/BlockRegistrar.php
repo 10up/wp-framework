@@ -165,7 +165,7 @@ abstract class BlockRegistrar implements ModuleInterface {
 	 * Get block registration options for a specific block folder.
 	 *
 	 * @param string $block_folder The path to the block folder.
-	 * @return array Block registration options.
+	 * @return array<string, mixed> Block registration options.
 	 */
 	protected function get_block_options( string $block_folder ): array {
 		$block_options = [];
@@ -215,8 +215,8 @@ abstract class BlockRegistrar implements ModuleInterface {
 	/**
 	 * Static callback for the allowed_block_types_all filter.
 	 *
-	 * @param array|bool $allowed_blocks Current allowed blocks.
-	 * @return array|bool Modified allowed blocks.
+	 * @param array<string>|bool $allowed_blocks Current allowed blocks.
+	 * @return array<string>|bool Modified allowed blocks.
 	 */
 	public static function filter_allowed_block_types( array|bool $allowed_blocks ): array|bool {
 		if ( ! is_array( $allowed_blocks ) ) {
@@ -292,7 +292,7 @@ abstract class BlockRegistrar implements ModuleInterface {
 	 * Validate block.json file and return metadata.
 	 *
 	 * @param string $file_path Path to block.json file.
-	 * @return array|false Block metadata or false if invalid.
+	 * @return array<array-key, mixed>|false Block metadata or false if invalid.
 	 */
 	protected function validate_block_json( string $file_path ): array|false {
 		// Check if file exists and is readable

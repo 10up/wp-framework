@@ -25,10 +25,8 @@ class ModuleInitialization {
 
 	/**
 	 * The directory name, within the discovery directory, that holds the class cache.
-	 *
-	 * @var string
 	 */
-	public const CACHE_DIR_NAME = 'class-loader-cache';
+	public const string CACHE_DIR_NAME = 'class-loader-cache';
 
 	/**
 	 * The class cache filename.
@@ -37,17 +35,13 @@ class ModuleInitialization {
 	 * runtime looks for a filename the previous build never produced, so a stale file
 	 * is simply ignored until a fresh build regenerates it. The old file is harmless
 	 * cruft that a clean deploy clears.
-	 *
-	 * @var string
 	 */
-	public const CACHE_FILENAME = 'class-loader-cache-v2.php';
+	public const string CACHE_FILENAME = 'class-loader-cache-v2.php';
 
 	/**
 	 * The Spatie cache identifier.
-	 *
-	 * @var string
 	 */
-	public const CACHE_ID = 'TenupFramework';
+	public const string CACHE_ID = 'TenupFramework';
 
 	/**
 	 * The class instance.
@@ -87,7 +81,7 @@ class ModuleInitialization {
 	 *
 	 * @var bool
 	 */
-	protected $cache_read_failed = false;
+	protected bool $cache_read_failed = false;
 
 	/**
 	 * Get all the TenupFramework plugin classes.
@@ -124,7 +118,7 @@ class ModuleInitialization {
 		try {
 			// array_filter is inside the try so that a cache which parses but returns a
 			// non-array (not only a truncated one) also falls back rather than fataling here.
-			return array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
+			return array_filter( $class_finder->get(), fn( mixed $cl ) => is_string( $cl ) );
 		} catch ( \Throwable $e ) {
 			// A shipped cache file that is corrupt or truncated — a partial deploy, an
 			// interrupted build, a half-written rsync — would otherwise fatal on every request
@@ -145,7 +139,7 @@ class ModuleInitialization {
 				do_action( 'tenup_framework_cache_load_failed', $dir, $e );
 			}
 
-			return array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) );
+			return array_filter( $this->build_discoverer( $dir )->get(), fn( mixed $cl ) => is_string( $cl ) );
 		}
 	}
 
@@ -157,11 +151,11 @@ class ModuleInitialization {
 	 * run from a plain CLI script during CI without bootstrapping WordPress. The resulting
 	 * file is then deployed as a build artefact and read (never rewritten) at runtime.
 	 *
-	 * @param string $dir The directory to search for classes.
+	 * @param string|null $dir The directory to search for classes.
 	 *
 	 * @return array<string> The discovered class names that were cached.
 	 */
-	public function generate_cache( $dir = '' ) {
+	public function generate_cache( ?string $dir = '' ): array {
 		$this->directory_check( $dir );
 
 		$class_finder = $this->build_discoverer( $dir );
@@ -179,7 +173,7 @@ class ModuleInitialization {
 		// regenerate always reflects the current code rather than a previous build.
 		$classes = $class_finder->cache();
 
-		return array_filter( $classes, fn( $cl ) => is_string( $cl ) );
+		return array_filter( $classes, fn( mixed $cl ) => is_string( $cl ) );
 	}
 
 	/**
@@ -190,7 +184,7 @@ class ModuleInitialization {
 	 *
 	 * @return Discover
 	 */
-	protected function build_discoverer( $dir ): Discover {
+	protected function build_discoverer( string $dir ): Discover {
 		// Get all classes from this directory and its subdirectories.
 		$class_finder = Discover::in( $dir );
 		// Only fetch classes.
@@ -208,7 +202,7 @@ class ModuleInitialization {
 	 *
 	 * @return string
 	 */
-	protected function get_cache_directory( $dir ): string {
+	protected function get_cache_directory( string $dir ): string {
 		return rtrim( $dir, '/' ) . '/' . self::CACHE_DIR_NAME;
 	}
 
@@ -230,14 +224,14 @@ class ModuleInitialization {
 	 * Used by the admin-only debug page's on-demand staleness check to compare what is actually
 	 * on disk against what the cache loaded.
 	 *
-	 * @param string $dir The directory to search for classes.
+	 * @param string|null $dir The directory to search for classes.
 	 *
 	 * @return array<string>
 	 */
-	public function discover_live( $dir ) {
+	public function discover_live( ?string $dir ): array {
 		$this->directory_check( $dir );
 
-		return array_values( array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) ) );
+		return array_values( array_filter( $this->build_discoverer( $dir )->get(), fn( mixed $cl ) => is_string( $cl ) ) );
 	}
 
 	/**
@@ -254,7 +248,7 @@ class ModuleInitialization {
 	 *
 	 * @return void
 	 */
-	protected function record_loader_debug( $dir, array $classes, float $discovery_seconds = 0.0, float $lookup_seconds = 0.0 ) {
+	protected function record_loader_debug( string $dir, array $classes, float $discovery_seconds = 0.0, float $lookup_seconds = 0.0 ): void {
 		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) {
 			return;
 		}
@@ -319,7 +313,13 @@ class ModuleInitialization {
 	/**
 	 * Check if the directory exists.
 	 *
-	 * @param string $dir The directory to check.
+	 * Returning at all proves $dir is a usable path: every other outcome throws. The assert
+	 * hands that guarantee to PHPStan so callers taking a nullable $dir do not each need their
+	 * own redundant null check.
+	 *
+	 * @param string|null $dir The directory to check.
+	 *
+	 * @phpstan-assert non-empty-string $dir
 	 *
 	 * @throws \RuntimeException If the directory does not exist.
 	 */

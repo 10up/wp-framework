@@ -46,6 +46,12 @@ abstract class AbstractPostType implements ModuleInterface {
 
 	/**
 	 * Get the post type name.
+	 *
+	 * WordPress requires a post type key to be a non-empty lowercase string, so the contract
+	 * states that rather than a bare string. Returning anything else is rejected by
+	 * register_post_type() at runtime.
+	 *
+	 * @return lowercase-string&non-empty-string
 	 */
 	abstract public function get_name(): string;
 
