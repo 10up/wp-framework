@@ -61,7 +61,7 @@
         "rector": [
             "./vendor/bin/rector",
             "composer run lint-fix"
-        ]
+        ],
         "generate-class-cache": "@php bin/tenup-framework-generate-class-cache"
     },
     "scripts-descriptions": {
