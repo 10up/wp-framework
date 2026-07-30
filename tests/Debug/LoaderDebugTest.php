@@ -305,6 +305,15 @@ class LoaderDebugTest extends TestCase {
 				'error',
 				'not used',
 			],
+			'failed to load'     => [
+				[
+					'cache_exists' => true,
+					'cache_used'   => false,
+					'cache_failed' => true,
+				],
+				'error',
+				'failed to load',
+			],
 			'in use'             => [
 				[
 					'cache_exists' => true,

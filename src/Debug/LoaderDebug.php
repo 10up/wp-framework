@@ -354,9 +354,9 @@ class LoaderDebug {
 			return;
 		}
 
-		$live_start   = microtime( true );
+		$live_start   = hrtime( true );
 		$live         = ModuleInitialization::instance()->discover_live( $directory );
-		$live_seconds = microtime( true ) - $live_start;
+		$live_seconds = ( hrtime( true ) - $live_start ) / 1e9;
 
 		$loaded  = array_values( $classes );
 		$removed = array_diff( $loaded, $live ); // In cache but no longer on disk.
@@ -546,6 +546,14 @@ class LoaderDebug {
 				'severity' => 'warn',
 				'badge'    => __( 'Caching disabled', 'tenup-framework' ),
 				'note'     => __( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE is set, so any shipped cache is ignored and classes are discovered live on every request.', 'tenup-framework' ),
+			];
+		}
+
+		if ( ! empty( $loader['cache_failed'] ) ) {
+			return [
+				'severity' => 'error',
+				'badge'    => __( 'Cache failed to load — running live', 'tenup-framework' ),
+				'note'     => __( 'A cache file is present but could not be read (corrupt or truncated), so the framework fell back to a live scan on every request. Rebuild the cache in your pipeline and redeploy.', 'tenup-framework' ),
 			];
 		}
 

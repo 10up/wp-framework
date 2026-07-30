@@ -83,6 +83,15 @@ class ModuleInitialization {
 	protected $classes = [];
 
 	/**
+	 * Whether the most recent get_classes() call fell back to a live scan because a shipped
+	 * cache file failed to load (corrupt or truncated). Read by record_loader_debug() so the
+	 * debug page flags the degraded state instead of reporting the cache as healthy.
+	 *
+	 * @var bool
+	 */
+	protected $cache_read_failed = false;
+
+	/**
 	 * Get all the TenupFramework plugin classes.
 	 *
 	 * @param string $dir The directory to search for classes.
@@ -112,18 +121,34 @@ class ModuleInitialization {
 			);
 		}
 
+		$this->cache_read_failed = false;
+
 		try {
-			$discovered = $class_finder->get();
+			// array_filter is inside the try so that a cache which parses but returns a
+			// non-array (not only a truncated one) also falls back rather than fataling here.
+			return array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
 		} catch ( \Throwable $e ) {
 			// A shipped cache file that is corrupt or truncated — a partial deploy, an
 			// interrupted build, a half-written rsync — would otherwise fatal on every request
 			// (the cache is executable PHP loaded with `require`). Fall back to a fresh live
 			// discovery so the site keeps working, uncached, until the cache is rebuilt. This
 			// is the same spirit as issue #30: a bad cache must never take the site down.
-			$discovered = $this->build_discoverer( $dir )->get();
-		}
+			$this->cache_read_failed = true;
 
-		return array_filter( $discovered, fn( $cl ) => is_string( $cl ) );
+			if ( function_exists( 'do_action' ) ) {
+				/**
+				 * Fires when a shipped class cache could not be read and the runtime fell back
+				 * to a live scan. Lets a project log or alert on a degraded (uncached) deploy;
+				 * the loader debug page flags the same state.
+				 *
+				 * @param string     $dir The directory whose cache failed to load.
+				 * @param \Throwable $e   The error raised while reading the cache.
+				 */
+				do_action( 'tenup_framework_cache_load_failed', $dir, $e );
+			}
+
+			return array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) );
+		}
 	}
 
 	/**
@@ -246,14 +271,18 @@ class ModuleInitialization {
 		$cache_file   = $this->get_cache_directory( $dir ) . '/' . self::CACHE_FILENAME;
 		$cache_exists = file_exists( $cache_file );
 		$disabled     = $this->cache_disabled();
+		$failed       = $this->cache_read_failed;
 
 		LoaderDebug::record(
 			[
 				'directory'         => $dir,
 				'cache_file'        => $cache_file,
 				'cache_exists'      => $cache_exists,
-				'cache_used'        => $cache_exists && ! $disabled,
+				// A present cache that failed to load was not actually used — the runtime fell
+				// back to a live scan — so report it as such rather than "in use".
+				'cache_used'        => $cache_exists && ! $disabled && ! $failed,
 				'cache_disabled'    => $disabled,
+				'cache_failed'      => $failed,
 				'classes'           => $classes,
 				'version'           => $this->framework_version(),
 				'reference'         => $this->framework_reference(),

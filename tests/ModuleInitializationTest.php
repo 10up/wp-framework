@@ -400,6 +400,54 @@ class ModuleInitializationTest extends TestCase {
 	}
 
 	/**
+	 * A corrupt or truncated cache file falls back to a live scan instead of fataling.
+	 *
+	 * @return void
+	 */
+	public function test_get_classes_falls_back_when_the_cache_is_corrupt() {
+		$dir         = $this->make_temp_class_dir();
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$module_init->generate_cache( $dir );
+
+		// Truncated PHP: require() raises a ParseError, which the read path must catch.
+		$this->write_file( $this->cache_file_path( $dir ), '<?php return array( ' );
+
+		$classes = $module_init->get_classes( $dir );
+
+		$this->assertContains( 'TenupTmp\\Widget', $classes );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * When the read path falls back, the loader record flags the failure so the debug page can
+	 * show it rather than reporting the cache as in use.
+	 *
+	 * @return void
+	 */
+	public function test_corrupt_cache_records_a_failed_state() {
+		when( 'is_admin' )->justReturn( true );
+		when( 'add_action' )->justReturn( true );
+		when( 'add_filter' )->justReturn( true );
+		when( 'apply_filters' )->returnArg( 2 );
+
+		$dir         = $this->make_temp_class_dir();
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$module_init->generate_cache( $dir );
+		$this->write_file( $this->cache_file_path( $dir ), '<?php return array( ' );
+
+		$module_init->init_classes( $dir );
+
+		$loaders = \TenupFramework\Debug\LoaderDebug::get_loaders();
+		$this->assertNotEmpty( $loaders );
+		$this->assertTrue( $loaders[0]['cache_failed'] );
+		$this->assertFalse( $loaders[0]['cache_used'] );
+		$this->assertContains( 'TenupTmp\\Widget', $loaders[0]['classes'] );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
 	 * Build the absolute path to the cache file for a discovery directory.
 	 *
 	 * @param string $dir The discovery directory.

@@ -28,7 +28,8 @@ page aggregates every loader recorded across all of them — even copies that ar
 - **Framework version** — version and git reference of the copy that recorded it, so a
   version mismatch between plugins is visible.
 - **Cache file** — its path, and the status: in use, present-but-not-used, discovering live
-  (no file), or disabled. When a file is present, its age and size.
+  (no file), disabled, or **failed to load** (a present cache that was corrupt or truncated, so
+  the runtime fell back to a live scan — badged red). When a file is present, its age and size.
 - **Stale cache files** — a warning if the cache directory holds files other than the current
   one (usually leftovers from an older framework version).
 - **Classes loaded** — every class the loader resolved, with the file each one lives in. A class
@@ -58,6 +59,22 @@ read-only runtime.
 
 The recording and the page are **admin-only**. On front-end requests nothing is recorded, no hooks
 are added, and the debug class is never even loaded.
+
+## Corrupt cache
+
+If a shipped cache file is corrupt or truncated (a partial deploy or half-written rsync), the
+runtime catches it and falls back to a live scan rather than fataling the request. The debug page
+flags that loader red as **"Cache failed to load — running live"** so the degraded state is
+visible rather than looking healthy. To alert or log on it outside the admin, hook the action that
+fires on every fallback:
+
+```php
+add_action( 'tenup_framework_cache_load_failed', function ( $dir, $error ) {
+    error_log( "WP Framework: class cache for {$dir} failed to load: " . $error->getMessage() );
+}, 10, 2 );
+```
+
+The fix is to rebuild the cache in your pipeline and redeploy.
 
 ## Known limitations
 
