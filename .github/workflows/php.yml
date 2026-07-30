@@ -3,8 +3,12 @@ name: PHP Checks
 on:
   push:
     branches: ["trunk", "develop"]
+  # Deliberately unfiltered. A `branches` list here matches the PR's *base* branch, so
+  # restricting it to trunk/develop silently skipped every PR opened against a release branch
+  # such as feature/2.0.0 - the checks tab simply reported nothing for the commit. Pushes stay
+  # limited to the long-lived branches so PR commits do not run twice.
   pull_request:
-    branches: ["trunk", "develop"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,8 +59,35 @@ jobs:
         run: composer run static
 
   test:
-    name: Unit Tests
+    name: Tests
     runs-on: ubuntu-latest
+
+    # The integration suite runs against a real WordPress, which Mantle installs itself into a
+    # temporary directory. It still needs a database to install into.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: wp_framework_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      # Mantle reads these via getenv(); tests/bootstrap.php only supplies defaults for whatever
+      # is unset, so these win. WP_CORE_DIR is kept per-package so a shared runner can never
+      # hand us another project's cached wp-tests-config.php, which would point the destructive
+      # installer at the wrong database.
+      WP_DB_NAME: wp_framework_tests
+      WP_DB_USER: root
+      WP_DB_PASSWORD: ""
+      WP_DB_HOST: 127.0.0.1
+      WP_CORE_DIR: ${{ github.workspace }}/.wordpress-tests
 
     steps:
       - uses: actions/checkout@v3
@@ -66,9 +97,10 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
           tools: composer:v2
+          extensions: mysqli
 
       - name: Install dependencies
         run: composer install --no-progress --no-suggest
 
-      - name: Run PHPUnit
+      - name: Run Pest
         run: composer run test

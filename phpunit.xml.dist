@@ -4,25 +4,31 @@
         bootstrap="tests/bootstrap.php"
         backupGlobals="false"
         colors="true"
-        convertErrorsToExceptions="true"
-        convertNoticesToExceptions="true"
-        convertWarningsToExceptions="true"
-        xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.5/phpunit.xsd"
+        xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
 >
-    <coverage>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory suffix="Test.php">./tests/Unit/</directory>
+        </testsuite>
+
+        <testsuite name="Integration">
+            <directory suffix="Test.php">./tests/Integration/</directory>
+        </testsuite>
+
+        <testsuite name="Arch">
+            <directory suffix="Test.php">./tests/Arch/</directory>
+        </testsuite>
+    </testsuites>
+
+    <!--
+        Defines what coverage measures when it is requested. Deliberately no <coverage><report>
+        block: declaring report outputs here makes PHPUnit enable coverage collection on every
+        run, which then hard-fails when no Xdebug or PCOV is installed. Ask for coverage on the
+        command line instead, via `composer test-coverage`.
+    -->
+    <source>
         <include>
             <directory suffix=".php">./src/</directory>
         </include>
-
-        <report>
-            <html outputDirectory="coverage/html"/>
-            <clover outputFile="coverage/clover.xml"/>
-        </report>
-    </coverage>
-
-    <testsuites>
-        <testsuite name="All">
-            <directory suffix="Test.php">./tests/</directory>
-        </testsuite>
-    </testsuites>
+    </source>
 </phpunit>

@@ -2,5 +2,9 @@ vendor/
 coverage/
 .phpunit.result.cache
 
+# WordPress installed for the integration suite (CI points WP_CORE_DIR here; locally it
+# defaults to the system temp directory).
+.wordpress-tests/
+
 # Generated class-loader cache (a build artefact, not source)
 class-loader-cache/
