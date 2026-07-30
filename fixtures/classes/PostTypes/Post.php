@@ -24,7 +24,7 @@ class Post extends AbstractCorePostType {
 	 *
 	 * @return string
 	 */
-	public function get_name(): string {
+	public function get_name() {
 		return 'post';
 	}
 
@@ -36,7 +36,7 @@ class Post extends AbstractCorePostType {
 	 *
 	 * @return array<string>
 	 */
-	public function get_supported_taxonomies(): array {
+	public function get_supported_taxonomies() {
 		return [];
 	}
 
@@ -45,7 +45,7 @@ class Post extends AbstractCorePostType {
 	 *
 	 * @return void
 	 */
-	public function after_register(): void {
+	public function after_register() {
 		// Do nothing.
 	}
 }
