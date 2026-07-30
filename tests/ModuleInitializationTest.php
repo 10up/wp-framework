@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace TenupFrameworkTests;
 
 use PHPUnit\Framework\TestCase;
+use function Brain\Monkey\Functions\stubs;
 
 /**
  * Test Class
@@ -146,5 +147,76 @@ class ModuleInitializationTest extends TestCase {
 		$this->assertInstanceOf( 'ReflectionClass', $module_init->get_fully_loadable_class( '\TenupFrameworkTestClasses\Loadable\BaseClass' ) );
 		$this->assertInstanceOf( 'ReflectionClass', $module_init->get_fully_loadable_class( '\TenupFrameworkTestClasses\Loadable\ChildClass' ) );
 		$this->assertFalse( $module_init->get_fully_loadable_class( '\TenupFrameworkTestClasses\Loadable\InvalidChildClass' ) );
+	}
+
+
+	/**
+	 * Ensure it returns false if VIP_GO_APP_ENVIRONMENT is defined.
+	 *
+	 * @return void
+	 */
+	public function test_should_use_cache_returns_false_when_vip_env_is_defined() {
+		define( 'VIP_GO_APP_ENVIRONMENT', true );
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$reflection  = new \ReflectionClass( $module_init );
+		$method      = $reflection->getMethod( 'should_use_cache' );
+		$method->setAccessible( true );
+
+		$this->assertFalse( $method->invoke( $module_init ) );
+	}
+
+	/**
+	 * Ensure it returns false in non-production or staging environments.
+	 *
+	 * @return void
+	 */
+	public function test_should_use_cache_returns_false_in_non_production_or_staging_env() {
+		stubs(
+			[
+				'wp_get_environment_type' => 'development',
+			]
+		);
+
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$reflection  = new \ReflectionClass( $module_init );
+		$method      = $reflection->getMethod( 'should_use_cache' );
+		$method->setAccessible( true );
+
+		$this->assertFalse( $method->invoke( $module_init ) );
+	}
+
+	/**
+	 * Ensure it returns false when TENUP_FRAMEWORK_DISABLE_CLASS_CACHE is defined.
+	 *
+	 * @return void
+	 */
+	public function test_should_use_cache_returns_false_when_disable_class_cache_is_defined() {
+		define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true );
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$reflection  = new \ReflectionClass( $module_init );
+		$method      = $reflection->getMethod( 'should_use_cache' );
+		$method->setAccessible( true );
+
+		$this->assertFalse( $method->invoke( $module_init ) );
+	}
+
+	/**
+	 * Ensure it returns true under default conditions.
+	 *
+	 * @return void
+	 */
+	public function test_should_use_cache_returns_true_under_default_conditions() {
+		stubs(
+			[
+				'wp_get_environment_type' => 'production',
+			]
+		);
+
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$reflection  = new \ReflectionClass( $module_init );
+		$method      = $reflection->getMethod( 'should_use_cache' );
+		$method->setAccessible( true );
+
+		$this->assertTrue( $method->invoke( $module_init ) );
 	}
 }

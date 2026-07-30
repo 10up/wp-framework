@@ -21,7 +21,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return string
 	 */
-	public function get_name(): string {
+	public function get_name() {
 		return 'tenup-demo';
 	}
 
@@ -30,7 +30,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return string
 	 */
-	public function get_singular_label(): string {
+	public function get_singular_label() {
 		return esc_html__( 'Demo', 'tenup-plugin' );
 	}
 
@@ -39,7 +39,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return string
 	 */
-	public function get_plural_label(): string {
+	public function get_plural_label() {
 		return esc_html__( 'Demos', 'tenup-plugin' );
 	}
 
@@ -52,7 +52,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return string
 	 */
-	public function get_menu_icon(): string {
+	public function get_menu_icon() {
 		return 'dashicons-chart-pie';
 	}
 
@@ -61,7 +61,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return bool
 	 */
-	public function can_register(): bool {
+	public function can_register() {
 		return true;
 	}
 
@@ -71,7 +71,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return array<string>
 	 */
-	public function get_supported_taxonomies(): array {
+	public function get_supported_taxonomies() {
 		return [
 			'tenup-tax-demo',
 		];
@@ -82,7 +82,7 @@ class Demo extends AbstractPostType {
 	 *
 	 * @return void
 	 */
-	public function after_register(): void {
+	public function after_register() {
 		// Register any hooks/filters you need.
 	}
 }

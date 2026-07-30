@@ -24,14 +24,16 @@ class ModuleInitialization {
 	/**
 	 * The class instance.
 	 *
-	 * @var ?\TenupFramework\ModuleInitialization
+	 * @var null|ModuleInitialization
 	 */
-	private static ?\TenupFramework\ModuleInitialization $instance = null;
+	private static $instance = null;
 
 	/**
 	 * Get the instance of the class.
+	 *
+	 * @return ModuleInitialization
 	 */
-	public static function instance(): \TenupFramework\ModuleInitialization {
+	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
@@ -50,7 +52,7 @@ class ModuleInitialization {
 	 *
 	 * @var array<ModuleInterface>
 	 */
-	protected array $classes = [];
+	protected $classes = [];
 
 	/**
 	 * Get all the TenupFramework plugin classes.
@@ -59,27 +61,49 @@ class ModuleInitialization {
 	 *
 	 * @return array<string>
 	 */
-	public function get_classes( string $dir ): array {
+	public function get_classes( $dir ) {
 		$this->directory_check( $dir );
 
 		// Get all classes from this directory and its subdirectories.
 		$class_finder = Discover::in( $dir );
 		// Only fetch classes.
 		$class_finder->classes();
+		// Disable inheritance chain resolution
+		$class_finder->withoutChains();
 
 		// If we are in production or staging, cache the class loader to improve performance.
-		if ( ! defined( 'VIP_GO_APP_ENVIRONMENT' ) && in_array( wp_get_environment_type(), [ 'production', 'staging' ], true ) ) {
+		if ( $this->should_use_cache() ) {
 			$class_finder->withCache(
 				__NAMESPACE__,
 				new FileDiscoverCacheDriver( $dir . '/class-loader-cache' )
 			);
 		}
 
-		// @phpstan-ignore-next-line typeCoverage.paramTypeCoverage
-		$classes = array_filter( $class_finder->get(), fn( $cl ): bool => is_string( $cl ) );
+		$classes = array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
 
 		// Return the classes
 		return $classes;
+	}
+
+	/**
+	 * Should we set up and use the class cache?
+	 *
+	 * @return bool
+	 */
+	protected function should_use_cache(): bool {
+		if ( defined( 'VIP_GO_APP_ENVIRONMENT' ) ) {
+			return false;
+		}
+
+		if ( ! in_array( wp_get_environment_type(), [ 'production', 'staging' ], true ) ) {
+			return false;
+		}
+
+		if ( defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -88,8 +112,10 @@ class ModuleInitialization {
 	 * @param string $dir The directory to check.
 	 *
 	 * @throws \RuntimeException If the directory does not exist.
+	 *
+	 * @return bool
 	 */
-	protected function directory_check( ?string $dir ): bool {
+	protected function directory_check( $dir ): bool {
 		if ( empty( $dir ) ) {
 			throw new \RuntimeException( 'Directory is required to initialize classes.' );
 		}
@@ -106,12 +132,13 @@ class ModuleInitialization {
 	 * Initialize all the TenupFramework plugin classes.
 	 *
 	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return void
 	 */
-	public function init_classes( ?string $dir = '' ): void {
+	public function init_classes( $dir = '' ) {
 		$this->directory_check( $dir );
 
 		$load_class_order = [];
-		// @phpstan-ignore-next-line argument.type
 		foreach ( $this->get_classes( $dir ) as $class ) {
 			// Create a slug for the class name.
 			$slug = $this->slugify_class_name( $class );
@@ -134,7 +161,7 @@ class ModuleInitialization {
 			}
 
 			// Check if the class implements ModuleInterface before instantiating it
-			if ( ! $reflection_class->implementsInterface( \TenupFramework\ModuleInterface::class ) ) {
+			if ( ! $reflection_class->implementsInterface( 'TenupFramework\ModuleInterface' ) ) {
 				continue;
 			}
 
@@ -177,6 +204,8 @@ class ModuleInitialization {
 	 *
 	 * @param string $class_name The name of the class to load.
 	 *
+	 * @return false|ReflectionClass Returns a ReflectionClass instance if the class is loadable, or false if it is not.
+	 *
 	 * @phpstan-ignore missingType.generics
 	 */
 	public function get_fully_loadable_class( string $class_name ): false|ReflectionClass {
@@ -184,7 +213,7 @@ class ModuleInitialization {
 			// Create a new reflection of the class.
 			// @phpstan-ignore argument.type
 			return new ReflectionClass( $class_name );
-		} catch ( \Throwable ) {
+		} catch ( \Throwable $e ) {
 			// This includes ReflectionException, Error due to missing parent, etc.
 			return false;
 		}
@@ -194,8 +223,10 @@ class ModuleInitialization {
 	 * Slugify a class name.
 	 *
 	 * @param string $class_name The class name.
+	 *
+	 * @return string
 	 */
-	protected function slugify_class_name( string $class_name ): string {
+	protected function slugify_class_name( $class_name ) {
 		return sanitize_title( str_replace( '\\', '-', $class_name ) );
 	}
 
@@ -203,8 +234,10 @@ class ModuleInitialization {
 	 * Get a class by its full class name, including namespace.
 	 *
 	 * @param string $class_name The class name & namespace.
+	 *
+	 * @return false|ModuleInterface
 	 */
-	public function get_class( string $class_name ): false|ModuleInterface {
+	public function get_class( $class_name ) {
 		$class_name = $this->slugify_class_name( $class_name );
 
 		if ( isset( $this->classes[ $class_name ] ) ) {
@@ -219,7 +252,7 @@ class ModuleInitialization {
 	 *
 	 * @return array<ModuleInterface>
 	 */
-	public function get_all_classes(): array {
+	public function get_all_classes() {
 		return $this->classes;
 	}
 
@@ -227,8 +260,10 @@ class ModuleInitialization {
 	 * Get an initialized class by its full class name, including namespace.
 	 *
 	 * @param string $class_name The class name including the namespace.
+	 *
+	 * @return false|ModuleInterface
 	 */
-	public static function get_module( string $class_name ): false|ModuleInterface {
+	public static function get_module( $class_name ) {
 		return self::instance()->get_class( $class_name );
 	}
 }
