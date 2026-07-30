@@ -9,10 +9,12 @@ declare( strict_types = 1 );
 
 namespace TenupFramework;
 
+use Composer\InstalledVersions;
 use ReflectionClass;
 use Spatie\StructureDiscoverer\Cache\FileDiscoverCacheDriver;
-use Spatie\StructureDiscoverer\Data\DiscoveredStructure;
 use Spatie\StructureDiscoverer\Discover;
+use TenupFramework\Cache\ReadOnlyFileDiscoverCacheDriver;
+use TenupFramework\Debug\LoaderDebug;
 
 /**
  * ModuleInitialization class.
@@ -20,6 +22,32 @@ use Spatie\StructureDiscoverer\Discover;
  * @package TenupFramework
  */
 class ModuleInitialization {
+
+	/**
+	 * The directory name, within the discovery directory, that holds the class cache.
+	 *
+	 * @var string
+	 */
+	public const CACHE_DIR_NAME = 'class-loader-cache';
+
+	/**
+	 * The class cache filename.
+	 *
+	 * Bumping this value invalidates caches written by older framework versions: the
+	 * runtime looks for a filename the previous build never produced, so a stale file
+	 * is simply ignored until a fresh build regenerates it. The old file is harmless
+	 * cruft that a clean deploy clears.
+	 *
+	 * @var string
+	 */
+	public const CACHE_FILENAME = 'class-loader-cache-v2.php';
+
+	/**
+	 * The Spatie cache identifier.
+	 *
+	 * @var string
+	 */
+	public const CACHE_ID = 'TenupFramework';
 
 	/**
 	 * The class instance.
@@ -53,6 +81,15 @@ class ModuleInitialization {
 	protected array $classes = [];
 
 	/**
+	 * Whether the most recent get_classes() call fell back to a live scan because a shipped
+	 * cache file failed to load (corrupt or truncated). Read by record_loader_debug() so the
+	 * debug page flags the degraded state instead of reporting the cache as healthy.
+	 *
+	 * @var bool
+	 */
+	protected $cache_read_failed = false;
+
+	/**
 	 * Get all the TenupFramework plugin classes.
 	 *
 	 * @param string $dir The directory to search for classes.
@@ -62,47 +99,221 @@ class ModuleInitialization {
 	public function get_classes( string $dir ): array {
 		$this->directory_check( $dir );
 
+		$class_finder = $this->build_discoverer( $dir );
+
+		// The runtime only ever reads a pre-built cache; it never writes one. Caching is
+		// therefore opt-in: with no cache file present we discover live on every request,
+		// which is the correct default. A cache is produced at build time via the
+		// `tenup-framework-generate-class-cache` command and shipped as a build artefact.
+		//
+		// Define TENUP_FRAMEWORK_DISABLE_CLASS_CACHE to ignore any shipped cache and always
+		// discover live (useful for debugging).
+		if ( ! $this->cache_disabled() ) {
+			$class_finder->withCache(
+				self::CACHE_ID,
+				new ReadOnlyFileDiscoverCacheDriver(
+					$this->get_cache_directory( $dir ),
+					false,
+					self::CACHE_FILENAME
+				)
+			);
+		}
+
+		$this->cache_read_failed = false;
+
+		try {
+			// array_filter is inside the try so that a cache which parses but returns a
+			// non-array (not only a truncated one) also falls back rather than fataling here.
+			return array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
+		} catch ( \Throwable $e ) {
+			// A shipped cache file that is corrupt or truncated — a partial deploy, an
+			// interrupted build, a half-written rsync — would otherwise fatal on every request
+			// (the cache is executable PHP loaded with `require`). Fall back to a fresh live
+			// discovery so the site keeps working, uncached, until the cache is rebuilt. This
+			// is the same spirit as issue #30: a bad cache must never take the site down.
+			$this->cache_read_failed = true;
+
+			if ( function_exists( 'do_action' ) ) {
+				/**
+				 * Fires when a shipped class cache could not be read and the runtime fell back
+				 * to a live scan. Lets a project log or alert on a degraded (uncached) deploy;
+				 * the loader debug page flags the same state.
+				 *
+				 * @param string     $dir The directory whose cache failed to load.
+				 * @param \Throwable $e   The error raised while reading the cache.
+				 */
+				do_action( 'tenup_framework_cache_load_failed', $dir, $e );
+			}
+
+			return array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) );
+		}
+	}
+
+	/**
+	 * Generate the class cache for a directory and write it to disk.
+	 *
+	 * This is the build-time counterpart to get_classes(): it is the only place the
+	 * framework writes the cache, and it deliberately makes no WordPress calls so it can
+	 * run from a plain CLI script during CI without bootstrapping WordPress. The resulting
+	 * file is then deployed as a build artefact and read (never rewritten) at runtime.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return array<string> The discovered class names that were cached.
+	 */
+	public function generate_cache( $dir = '' ) {
+		$this->directory_check( $dir );
+
+		$class_finder = $this->build_discoverer( $dir );
+
+		$class_finder->withCache(
+			self::CACHE_ID,
+			new FileDiscoverCacheDriver(
+				$this->get_cache_directory( $dir ),
+				false,
+				self::CACHE_FILENAME
+			)
+		);
+
+		// cache() forces a fresh discovery and overwrites any existing cache file, so a
+		// regenerate always reflects the current code rather than a previous build.
+		$classes = $class_finder->cache();
+
+		return array_filter( $classes, fn( $cl ) => is_string( $cl ) );
+	}
+
+	/**
+	 * Build a discoverer configured the same way for both reading and generating, so the
+	 * two paths can never drift apart.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return Discover
+	 */
+	protected function build_discoverer( $dir ): Discover {
 		// Get all classes from this directory and its subdirectories.
 		$class_finder = Discover::in( $dir );
 		// Only fetch classes.
 		$class_finder->classes();
-		// Disable inheritance chain resolution
+		// Disable inheritance chain resolution.
 		$class_finder->withoutChains();
 
-		// If we are in production or staging, cache the class loader to improve performance.
-		if ( $this->should_use_cache() ) {
-			$class_finder->withCache(
-				__NAMESPACE__,
-				new FileDiscoverCacheDriver( $dir . '/class-loader-cache' )
-			);
-		}
-
-		// @phpstan-ignore-next-line typeCoverage.paramTypeCoverage
-		$classes = array_filter( $class_finder->get(), fn( $cl ): bool => is_string( $cl ) );
-
-		// Return the classes
-		return $classes;
+		return $class_finder;
 	}
 
 	/**
-	 * Should we set up and use the class cache?
+	 * Get the absolute path to the cache directory for a discovery directory.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return string
+	 */
+	protected function get_cache_directory( $dir ): string {
+		return rtrim( $dir, '/' ) . '/' . self::CACHE_DIR_NAME;
+	}
+
+	/**
+	 * Whether class caching has been explicitly disabled.
+	 *
+	 * When true, the runtime ignores any shipped cache and discovers classes live on every
+	 * request. Useful for debugging a suspected stale or incorrect cache.
 	 *
 	 * @return bool
 	 */
-	protected function should_use_cache(): bool {
-		if ( defined( 'VIP_GO_APP_ENVIRONMENT' ) ) {
-			return false;
+	protected function cache_disabled(): bool {
+		return defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE;
+	}
+
+	/**
+	 * Discover the classes in a directory live, ignoring any cache.
+	 *
+	 * Used by the admin-only debug page's on-demand staleness check to compare what is actually
+	 * on disk against what the cache loaded.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return array<string>
+	 */
+	public function discover_live( $dir ) {
+		$this->directory_check( $dir );
+
+		return array_values( array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) ) );
+	}
+
+	/**
+	 * Hand loader metadata to the admin-only debug tooling.
+	 *
+	 * Front-end requests do nothing here: the data is only viewable in the admin, so it is only
+	 * gathered there. The is_admin() check happens before LoaderDebug is referenced, so that
+	 * class never autoloads on the front end.
+	 *
+	 * @param string        $dir               The directory that was discovered.
+	 * @param array<string> $classes           The discovered class names.
+	 * @param float         $discovery_seconds Seconds spent obtaining the class list (cache read or live scan).
+	 * @param float         $lookup_seconds    Seconds spent reflecting, instantiating and registering the classes.
+	 *
+	 * @return void
+	 */
+	protected function record_loader_debug( $dir, array $classes, float $discovery_seconds = 0.0, float $lookup_seconds = 0.0 ) {
+		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) {
+			return;
 		}
 
-		if ( ! in_array( wp_get_environment_type(), [ 'production', 'staging' ], true ) ) {
-			return false;
+		// is_admin() is also true for admin-ajax.php. The debug page is a normal admin GET that
+		// re-runs discovery and records afresh, so recording on ajax requests is pure waste
+		// (often triggered from the front end). Skip them.
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+			return;
 		}
 
-		if ( defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE ) {
-			return false;
+		$cache_file   = $this->get_cache_directory( $dir ) . '/' . self::CACHE_FILENAME;
+		$cache_exists = file_exists( $cache_file );
+		$disabled     = $this->cache_disabled();
+		$failed       = $this->cache_read_failed;
+
+		LoaderDebug::record(
+			[
+				'directory'         => $dir,
+				'cache_file'        => $cache_file,
+				'cache_exists'      => $cache_exists,
+				// A present cache that failed to load was not actually used — the runtime fell
+				// back to a live scan — so report it as such rather than "in use".
+				'cache_used'        => $cache_exists && ! $disabled && ! $failed,
+				'cache_disabled'    => $disabled,
+				'cache_failed'      => $failed,
+				'classes'           => $classes,
+				'version'           => $this->framework_version(),
+				'reference'         => $this->framework_reference(),
+				'discovery_seconds' => $discovery_seconds,
+				'lookup_seconds'    => $lookup_seconds,
+			]
+		);
+	}
+
+	/**
+	 * The installed framework version, or an empty string when it cannot be determined.
+	 *
+	 * @return string
+	 */
+	protected function framework_version(): string {
+		if ( class_exists( InstalledVersions::class ) && InstalledVersions::isInstalled( '10up/wp-framework' ) ) {
+			return (string) InstalledVersions::getPrettyVersion( '10up/wp-framework' );
 		}
 
-		return true;
+		return '';
+	}
+
+	/**
+	 * The installed framework reference (git hash), or an empty string when unavailable.
+	 *
+	 * @return string
+	 */
+	protected function framework_reference(): string {
+		if ( class_exists( InstalledVersions::class ) && InstalledVersions::isInstalled( '10up/wp-framework' ) ) {
+			return (string) InstalledVersions::getReference( '10up/wp-framework' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -133,9 +344,18 @@ class ModuleInitialization {
 	public function init_classes( ?string $dir = '' ): void {
 		$this->directory_check( $dir );
 
+		// Time discovery (a cache read when a cache is present, a live filesystem scan
+		// otherwise) separately from the reflection/instantiation work below, so the debug
+		// page can show where the request's time actually goes. hrtime() is monotonic, so an
+		// NTP adjustment mid-request cannot produce a negative or wildly wrong delta.
+		$discovery_start   = hrtime( true );
+		$classes           = $this->get_classes( $dir );
+		$discovery_seconds = ( hrtime( true ) - $discovery_start ) / 1e9;
+
+		$lookup_start = hrtime( true );
+
 		$load_class_order = [];
-		// @phpstan-ignore-next-line argument.type
-		foreach ( $this->get_classes( $dir ) as $class ) {
+		foreach ( $classes as $class ) {
 			// Create a slug for the class name.
 			$slug = $this->slugify_class_name( $class );
 
@@ -193,6 +413,10 @@ class ModuleInitialization {
 				}
 			}
 		}
+
+		$lookup_seconds = ( hrtime( true ) - $lookup_start ) / 1e9;
+
+		$this->record_loader_debug( $dir, $classes, $discovery_seconds, $lookup_seconds );
 	}
 
 	/**
