@@ -12,7 +12,6 @@ namespace TenupFramework;
 use Composer\InstalledVersions;
 use ReflectionClass;
 use Spatie\StructureDiscoverer\Cache\FileDiscoverCacheDriver;
-use Spatie\StructureDiscoverer\Data\DiscoveredStructure;
 use Spatie\StructureDiscoverer\Discover;
 use TenupFramework\Cache\ReadOnlyFileDiscoverCacheDriver;
 use TenupFramework\Debug\LoaderDebug;
@@ -113,10 +112,18 @@ class ModuleInitialization {
 			);
 		}
 
-		$classes = array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
+		try {
+			$discovered = $class_finder->get();
+		} catch ( \Throwable $e ) {
+			// A shipped cache file that is corrupt or truncated — a partial deploy, an
+			// interrupted build, a half-written rsync — would otherwise fatal on every request
+			// (the cache is executable PHP loaded with `require`). Fall back to a fresh live
+			// discovery so the site keeps working, uncached, until the cache is rebuilt. This
+			// is the same spirit as issue #30: a bad cache must never take the site down.
+			$discovered = $this->build_discoverer( $dir )->get();
+		}
 
-		// Return the classes
-		return $classes;
+		return array_filter( $discovered, fn( $cl ) => is_string( $cl ) );
 	}
 
 	/**
@@ -217,13 +224,22 @@ class ModuleInitialization {
 	 * gathered there. The is_admin() check happens before LoaderDebug is referenced, so that
 	 * class never autoloads on the front end.
 	 *
-	 * @param string        $dir     The directory that was discovered.
-	 * @param array<string> $classes The discovered class names.
+	 * @param string        $dir               The directory that was discovered.
+	 * @param array<string> $classes           The discovered class names.
+	 * @param float         $discovery_seconds Seconds spent obtaining the class list (cache read or live scan).
+	 * @param float         $lookup_seconds    Seconds spent reflecting, instantiating and registering the classes.
 	 *
 	 * @return void
 	 */
-	protected function record_loader_debug( $dir, array $classes ) {
+	protected function record_loader_debug( $dir, array $classes, float $discovery_seconds = 0.0, float $lookup_seconds = 0.0 ) {
 		if ( ! function_exists( 'is_admin' ) || ! is_admin() ) {
+			return;
+		}
+
+		// is_admin() is also true for admin-ajax.php. The debug page is a normal admin GET that
+		// re-runs discovery and records afresh, so recording on ajax requests is pure waste
+		// (often triggered from the front end). Skip them.
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
 			return;
 		}
 
@@ -233,14 +249,16 @@ class ModuleInitialization {
 
 		LoaderDebug::record(
 			[
-				'directory'      => $dir,
-				'cache_file'     => $cache_file,
-				'cache_exists'   => $cache_exists,
-				'cache_used'     => $cache_exists && ! $disabled,
-				'cache_disabled' => $disabled,
-				'classes'        => $classes,
-				'version'        => $this->framework_version(),
-				'reference'      => $this->framework_reference(),
+				'directory'         => $dir,
+				'cache_file'        => $cache_file,
+				'cache_exists'      => $cache_exists,
+				'cache_used'        => $cache_exists && ! $disabled,
+				'cache_disabled'    => $disabled,
+				'classes'           => $classes,
+				'version'           => $this->framework_version(),
+				'reference'         => $this->framework_reference(),
+				'discovery_seconds' => $discovery_seconds,
+				'lookup_seconds'    => $lookup_seconds,
 			]
 		);
 	}
@@ -303,9 +321,15 @@ class ModuleInitialization {
 	public function init_classes( $dir = '' ) {
 		$this->directory_check( $dir );
 
-		$classes = $this->get_classes( $dir );
+		// Time discovery (a cache read when a cache is present, a live filesystem scan
+		// otherwise) separately from the reflection/instantiation work below, so the debug
+		// page can show where the request's time actually goes. hrtime() is monotonic, so an
+		// NTP adjustment mid-request cannot produce a negative or wildly wrong delta.
+		$discovery_start   = hrtime( true );
+		$classes           = $this->get_classes( $dir );
+		$discovery_seconds = ( hrtime( true ) - $discovery_start ) / 1e9;
 
-		$this->record_loader_debug( $dir, $classes );
+		$lookup_start = hrtime( true );
 
 		$load_class_order = [];
 		foreach ( $classes as $class ) {
@@ -366,6 +390,10 @@ class ModuleInitialization {
 				}
 			}
 		}
+
+		$lookup_seconds = ( hrtime( true ) - $lookup_start ) / 1e9;
+
+		$this->record_loader_debug( $dir, $classes, $discovery_seconds, $lookup_seconds );
 	}
 
 	/**

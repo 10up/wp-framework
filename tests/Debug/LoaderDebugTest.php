@@ -30,14 +30,16 @@ class LoaderDebugTest extends TestCase {
 	 */
 	private function sample_record( string $directory = '/srv/site/wp-content/plugins/demo/inc' ): array {
 		return [
-			'directory'      => $directory,
-			'cache_file'     => $directory . '/class-loader-cache/class-loader-cache-v2.php',
-			'cache_exists'   => false,
-			'cache_used'     => false,
-			'cache_disabled' => false,
-			'classes'        => [ 'TenupTmp\\Widget' ],
-			'version'        => '1.3.0',
-			'reference'      => 'abcdef1234567890',
+			'directory'         => $directory,
+			'cache_file'        => $directory . '/class-loader-cache/class-loader-cache-v2.php',
+			'cache_exists'      => false,
+			'cache_used'        => false,
+			'cache_disabled'    => false,
+			'classes'           => [ 'TenupTmp\\Widget' ],
+			'version'           => '1.3.0',
+			'reference'         => 'abcdef1234567890',
+			'discovery_seconds' => 0.0123,
+			'lookup_seconds'    => 0.0456,
 		];
 	}
 
@@ -171,6 +173,12 @@ class LoaderDebugTest extends TestCase {
 		$this->assertStringContainsString( '/srv/site/wp-content/plugins/demo/inc', $output );
 		$this->assertStringContainsString( 'TenupTmp\\Widget', $output );
 		$this->assertStringContainsString( 'Check this cache for staleness', $output );
+
+		// The recorded discovery/lookup timings are surfaced on the page.
+		$this->assertStringContainsString( 'Discovery time', $output );
+		$this->assertStringContainsString( 'Class lookup time', $output );
+		$this->assertStringContainsString( '12.30 ms', $output ); // 0.0123s discovery.
+		$this->assertStringContainsString( '45.60 ms', $output ); // 0.0456s lookup.
 	}
 
 	/**
@@ -220,6 +228,202 @@ class LoaderDebugTest extends TestCase {
 		$this->assertStringContainsString( 'Stale', $output );
 		$this->assertStringContainsString( 'TenupTmp\\Widget', $output ); // On disk, missing from cache.
 		$this->assertStringContainsString( 'TenupTmp\\Old', $output );    // In cache, gone from disk.
+		// The drift notice also reports a real, positive live-discovery duration.
+		$this->assertMatchesRegularExpression( '/Live discovery took \d[\d.,]* (ms|s)\./', $output );
+	}
+
+	/**
+	 * render_page() confirms an up-to-date cache and reports how long the live scan took when a
+	 * staleness check is requested and the loaded list matches disk.
+	 *
+	 * @return void
+	 */
+	public function test_render_page_reports_up_to_date_and_timing() {
+		$this->stub_render_environment();
+		when( 'wp_verify_nonce' )->justReturn( true );
+
+		$dir = $this->make_temp_class_dir();
+
+		// The loaded list matches what is actually on disk (the single Widget class).
+		$record            = $this->sample_record( $dir );
+		$record['classes'] = [ 'TenupTmp\\Widget' ];
+		LoaderDebug::record( $record );
+
+		$_GET['check']    = md5( $dir );
+		$_GET['_wpnonce'] = 'test';
+
+		$output = $this->capture_render();
+
+		unset( $_GET['check'], $_GET['_wpnonce'] );
+		$this->remove_temp_dir( $dir );
+
+		$this->assertStringContainsString( 'Up to date', $output );
+		// Require a real, positive duration — this must NOT match the "Live discovery took —."
+		// placeholder that format_duration() emits for a non-positive/absent value.
+		$this->assertMatchesRegularExpression( '/Live discovery took \d[\d.,]* (ms|s)\./', $output );
+	}
+
+	/**
+	 * cache_state() maps each combination of the record flags to the expected severity and badge.
+	 *
+	 * @dataProvider cache_state_provider
+	 *
+	 * @param array<string, bool> $flags            The cache_* flags to set on the record.
+	 * @param string              $expected_sev     The expected severity.
+	 * @param string              $expected_snippet A substring expected in the badge.
+	 *
+	 * @return void
+	 */
+	public function test_cache_state_resolves_expected_states( array $flags, string $expected_sev, string $expected_snippet ) {
+		$state = $this->invoke_protected( 'cache_state', [ array_merge( $this->sample_record(), $flags ) ] );
+
+		$this->assertSame( $expected_sev, $state['severity'] );
+		$this->assertStringContainsString( $expected_snippet, $state['badge'] );
+	}
+
+	/**
+	 * Data for test_cache_state_resolves_expected_states.
+	 *
+	 * @return array<string, array{0: array<string, bool>, 1: string, 2: string}>
+	 */
+	public function cache_state_provider(): array {
+		return [
+			'disabled'           => [ [ 'cache_disabled' => true ], 'warn', 'disabled' ],
+			'uncached'           => [
+				[
+					'cache_exists' => false,
+					'cache_used'   => false,
+				],
+				'warn',
+				'Uncached',
+			],
+			'present but unused' => [
+				[
+					'cache_exists' => true,
+					'cache_used'   => false,
+				],
+				'error',
+				'not used',
+			],
+			'in use'             => [
+				[
+					'cache_exists' => true,
+					'cache_used'   => true,
+				],
+				'ok',
+				'in use',
+			],
+		];
+	}
+
+	/**
+	 * legacy_files() reports files in the cache directory that are not the current cache file,
+	 * and nothing when the directory is clean or absent.
+	 *
+	 * @return void
+	 */
+	public function test_legacy_files_detects_unexpected_files() {
+		$dir       = $this->make_temp_class_dir();
+		$cache_dir = $dir . '/class-loader-cache';
+		mkdir( $cache_dir );
+
+		$current = $cache_dir . '/class-loader-cache-v2.php';
+		file_put_contents( $current, '<?php return array();' );
+
+		// A clean directory (only the current file) reports nothing.
+		$this->assertSame( [], $this->invoke_protected( 'legacy_files', [ $current ] ) );
+
+		// A leftover file from an older version is reported.
+		file_put_contents( $cache_dir . '/discoverer-cache-TenupFramework', 'x' );
+		$found = $this->invoke_protected( 'legacy_files', [ $current ] );
+		$this->assertContains( 'discoverer-cache-TenupFramework', $found );
+		$this->assertNotContains( 'class-loader-cache-v2.php', $found );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * legacy_files() is empty when the cache directory does not exist.
+	 *
+	 * @return void
+	 */
+	public function test_legacy_files_empty_when_directory_absent() {
+		$missing = sys_get_temp_dir() . '/tenup_missing_' . uniqid( '', true ) . '/class-loader-cache-v2.php';
+
+		$this->assertSame( [], $this->invoke_protected( 'legacy_files', [ $missing ] ) );
+	}
+
+	/**
+	 * format_duration() picks a sensible unit and renders a placeholder for non-positive input.
+	 *
+	 * @dataProvider duration_provider
+	 *
+	 * @param mixed  $seconds  The duration in seconds.
+	 * @param string $expected The expected rendered string.
+	 *
+	 * @return void
+	 */
+	public function test_format_duration( $seconds, string $expected ) {
+		$this->assertSame( $expected, $this->invoke_protected( 'format_duration', [ $seconds ] ) );
+	}
+
+	/**
+	 * Data for test_format_duration.
+	 *
+	 * @return array<string, array{0: mixed, 1: string}>
+	 */
+	public function duration_provider(): array {
+		return [
+			'zero'         => [ 0.0, '—' ],
+			'negative'     => [ -0.005, '—' ],
+			'non-numeric'  => [ 'nope', '—' ],
+			'not-a-number' => [ NAN, '—' ],
+			'infinite'     => [ INF, '—' ],
+			'sub-milli'    => [ 0.0004, '0.400 ms' ],
+			'milliseconds' => [ 0.0123, '12.30 ms' ],
+			'seconds'      => [ 1.5, '1.50 s' ],
+		];
+	}
+
+	/**
+	 * cache_detail() renders "Built <age> ago · <size> · <utc>" with the build time in UTC.
+	 *
+	 * @return void
+	 */
+	public function test_cache_detail_shows_size_and_utc_build_time() {
+		when( 'human_time_diff' )->justReturn( '5 minutes' );
+		when( 'size_format' )->alias( static fn( $bytes ) => $bytes . ' B' );
+
+		$dir       = $this->make_temp_class_dir();
+		$cache_dir = $dir . '/class-loader-cache';
+		mkdir( $cache_dir );
+		$cache_file = $cache_dir . '/class-loader-cache-v2.php';
+		file_put_contents( $cache_file, '<?php return array();' );
+
+		$detail = $this->invoke_protected( 'cache_detail', [ [ 'cache_file' => $cache_file ] ] );
+
+		$this->assertStringContainsString( 'Built 5 minutes ago', $detail );
+		// The absolute build time is the file mtime rendered in UTC as the trailing segment.
+		$expected_utc = gmdate( 'Y-m-d H:i:s', (int) filemtime( $cache_file ) ) . ' UTC';
+		$this->assertStringContainsString( '· ' . $expected_utc, $detail );
+		$this->assertMatchesRegularExpression( '/·\s*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$/', $detail );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * Invoke a protected static method on LoaderDebug via reflection.
+	 *
+	 * @param string       $method The method name.
+	 * @param array<mixed> $args   The arguments.
+	 *
+	 * @return mixed
+	 */
+	private function invoke_protected( string $method, array $args ) {
+		$reflection = ( new \ReflectionClass( LoaderDebug::class ) )->getMethod( $method );
+		$reflection->setAccessible( true );
+
+		return $reflection->invokeArgs( null, $args );
 	}
 
 	/**

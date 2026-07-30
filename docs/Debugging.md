@@ -33,6 +33,11 @@ page aggregates every loader recorded across all of them — even copies that ar
   one (usually leftovers from an older framework version).
 - **Classes loaded** — every class the loader resolved, with the file each one lives in. A class
   that no longer resolves is flagged as a likely stale entry.
+- **Discovery time** — how long this request spent obtaining the class list. With a cache present
+  this is the cost of reading it; uncached it is the cost of a live filesystem scan, so the two
+  states can be compared directly.
+- **Class lookup time** — how long reflecting, instantiating and registering the discovered
+  classes took.
 
 ## Staleness check
 
@@ -42,7 +47,9 @@ directory and diffs the result against what the cache loaded, listing:
 - classes **on disk but missing from the cache** (the cache is behind), and
 - classes **in the cache but no longer on disk** (renamed/removed).
 
-The check runs only when clicked, so the page itself stays cheap. If it reports drift, the cache
+It also reports **how long the live discovery took**, which — compared against the cached
+**Discovery time** above — shows what the cache is actually saving on this site. The check runs
+only when clicked, so the page itself stays cheap. If it reports drift, the cache
 is stale: regenerate it in your build (`composer generate-class-cache`) or remove the file and
 redeploy. The page is **read-only** — it never deletes or rewrites a cache, consistent with the
 read-only runtime.
@@ -51,6 +58,15 @@ read-only runtime.
 
 The recording and the page are **admin-only**. On front-end requests nothing is recorded, no hooks
 are added, and the debug class is never even loaded.
+
+## Known limitations
+
+- **Per request** — the page shows loaders recorded on the current admin request. A plugin whose
+  `init_classes()` did not run on this request will not appear.
+- **Mixed framework versions render with the oldest UI** — when a mono-repo runs several framework
+  copies on different versions, the first copy to record a loader registers and renders the page,
+  so newer per-loader fields degrade to blank rather than showing. Aligning framework versions
+  across packages avoids this; the data itself is still aggregated correctly across all copies.
 
 ## Disabling it
 

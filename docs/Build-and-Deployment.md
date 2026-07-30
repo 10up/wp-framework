@@ -158,7 +158,19 @@ workflows:
 
 If the build can't run the generate step for some reason, the deploy still works — it just
 runs uncached. A broken cache after a build means the build is the thing to fix, not the
-server.
+server. A cache file that is corrupt or truncated (a half-finished rsync, an interrupted
+build) is caught at runtime and the request falls back to a live scan, so a bad cache slows
+the site rather than taking it down.
+
+### Opcache and in-place deploys
+
+The cache is a PHP file loaded with `require`, so PHP's opcache caches it like any other
+source file. On hosts with `opcache.validate_timestamps=0` (common on the managed hosts where
+issue #30 was reported), overwriting `class-loader-cache-v2.php` **in place** keeps serving the
+previously compiled array until opcache is reset — which would reintroduce the very staleness
+this design removes. Either deploy to a fresh path (atomic symlink swap, the default on most
+zero-downtime deployers) or reset opcache as part of the deploy. The loader debug page's
+staleness check live-scans and will flag this if it happens.
 
 ## The per-package model
 
@@ -183,6 +195,14 @@ vendor/bin/tenup-framework-generate-class-cache \
   wp-content/plugins/foo/inc \
   wp-content/plugins/bar/inc
 ```
+
+One caveat for a mono-repo where packages pin **different** framework versions: the single
+invocation above uses one package's `vendor/bin` copy to write every directory's cache. That
+copy determines the cache filename and the Spatie discoverer version used. Today the payload is
+a plain array of class-name strings and the filename is identical across versions, so this is
+safe — but a future cache-format or filename bump would silently mismatch. When packages are on
+different framework versions, run **each package's own** `vendor/bin/tenup-framework-generate-class-cache`
+against its own directory so the writer and the reader are always the same version.
 
 ## See also
 - [Docs Home](README.md)

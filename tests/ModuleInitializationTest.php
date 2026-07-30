@@ -42,11 +42,14 @@ class ModuleInitializationTest extends TestCase {
 	 */
 	public function test_it_can_find_classes_to_register() {
 		$class = \TenupFramework\ModuleInitialization::instance();
-		$class->init_classes( dirname( __DIR__, 1 ) . '/src/' );
+		$class->init_classes( dirname( __DIR__, 1 ) . '/fixtures/classes' );
 		$classes = $class->get_all_classes();
 
-		// Check that we have only classes that extend Module and more than 0.
-		$this->assertGreaterThanOrEqual( 0, count( $classes ) );
+		// The registered set is non-empty and contains only ModuleInterface implementations.
+		$this->assertNotEmpty( $classes );
+		foreach ( $classes as $registered ) {
+			$this->assertInstanceOf( \TenupFramework\ModuleInterface::class, $registered );
+		}
 	}
 
 	/**
@@ -229,6 +232,33 @@ class ModuleInitializationTest extends TestCase {
 	}
 
 	/**
+	 * A corrupt or truncated cache file does not fatal the request: get_classes() catches the
+	 * error and falls back to a live discovery, so a bad cache degrades to uncached rather than
+	 * taking the site down.
+	 *
+	 * @return void
+	 */
+	public function test_get_classes_falls_back_to_live_when_cache_is_corrupt() {
+		$dir       = $this->make_temp_class_dir();
+		$cache_dir = $dir . '/' . \TenupFramework\ModuleInitialization::CACHE_DIR_NAME;
+		mkdir( $cache_dir );
+
+		// A truncated / syntactically broken cache file — `require` on this throws a ParseError.
+		$this->write_file(
+			$cache_dir . '/' . \TenupFramework\ModuleInitialization::CACHE_FILENAME,
+			"<?php return array( 'TenupTmp\\\\Widget'"
+		);
+
+		$module_init = \TenupFramework\ModuleInitialization::instance();
+		$read        = $module_init->get_classes( $dir );
+
+		// Fell back to a live scan and still found the real class on disk.
+		$this->assertContains( 'TenupTmp\\Widget', $read );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
 	 * Defining TENUP_FRAMEWORK_DISABLE_CLASS_CACHE forces live discovery even when a
 	 * cache file is present.
 	 *
@@ -272,6 +302,61 @@ class ModuleInitializationTest extends TestCase {
 		$this->assertCount( 1, $loaders );
 		$this->assertSame( $dir, $loaders[0]['directory'] );
 		$this->assertContains( 'TenupTmp\\Widget', $loaders[0]['classes'] );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * With no cache present, init_classes() records the time of a genuine live (uncached)
+	 * discovery — a real filesystem scan, so the recorded duration is strictly positive.
+	 *
+	 * @return void
+	 */
+	public function test_init_classes_records_live_discovery_timing_in_admin() {
+		when( 'is_admin' )->justReturn( true );
+		when( 'add_action' )->justReturn( true );
+		when( 'add_filter' )->justReturn( true );
+		when( 'apply_filters' )->returnArg( 2 );
+
+		$dir = $this->make_temp_class_dir();
+
+		\TenupFramework\ModuleInitialization::instance()->init_classes( $dir );
+
+		$loaders = \TenupFramework\Debug\LoaderDebug::get_loaders();
+		$this->assertCount( 1, $loaders );
+		$this->assertFalse( $loaders[0]['cache_used'], 'No cache exists, so discovery must be live.' );
+		$this->assertIsFloat( $loaders[0]['discovery_seconds'] );
+		$this->assertIsFloat( $loaders[0]['lookup_seconds'] );
+		// A live filesystem scan and the reflection loop both take measurable time; the never-wired
+		// default is 0.0, so asserting strictly-positive proves the instrumentation actually ran.
+		$this->assertGreaterThan( 0.0, $loaders[0]['discovery_seconds'] );
+		$this->assertGreaterThan( 0.0, $loaders[0]['lookup_seconds'] );
+
+		$this->remove_temp_dir( $dir );
+	}
+
+	/**
+	 * With a pre-built cache present, init_classes() reads it (cache_used) and still records a
+	 * positive discovery duration — the cache-read cost rather than a live scan.
+	 *
+	 * @return void
+	 */
+	public function test_init_classes_records_cache_read_timing_in_admin() {
+		when( 'is_admin' )->justReturn( true );
+		when( 'add_action' )->justReturn( true );
+		when( 'add_filter' )->justReturn( true );
+		when( 'apply_filters' )->returnArg( 2 );
+
+		$dir    = $this->make_temp_class_dir();
+		$module = \TenupFramework\ModuleInitialization::instance();
+		$module->generate_cache( $dir );
+
+		$module->init_classes( $dir );
+
+		$loaders = \TenupFramework\Debug\LoaderDebug::get_loaders();
+		$this->assertCount( 1, $loaders );
+		$this->assertTrue( $loaders[0]['cache_used'], 'A cache file exists, so it should be used.' );
+		$this->assertGreaterThan( 0.0, $loaders[0]['discovery_seconds'] );
 
 		$this->remove_temp_dir( $dir );
 	}

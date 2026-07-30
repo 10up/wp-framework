@@ -88,6 +88,18 @@ class LoaderDebug {
 			return;
 		}
 
+		// Keep one record per directory: if init_classes() runs more than once for the same
+		// directory in a request, the latest call (with fresh timing) replaces the earlier one
+		// rather than producing a duplicate card.
+		$directory = isset( $record['directory'] ) && is_string( $record['directory'] ) ? $record['directory'] : '';
+		foreach ( self::$loaders as $index => $existing ) {
+			if ( ( $existing['directory'] ?? null ) === $directory ) {
+				self::$loaders[ $index ] = $record;
+				self::boot();
+				return;
+			}
+		}
+
 		self::$loaders[] = $record;
 
 		self::boot();
@@ -253,6 +265,8 @@ class LoaderDebug {
 		self::render_row( __( 'Framework version', 'tenup-framework' ), self::version_label( $loader ) );
 		self::render_row( __( 'Cache file', 'tenup-framework' ), '' !== $cache_file ? $cache_file : '—' );
 		self::render_row( __( 'Cache detail', 'tenup-framework' ), self::cache_detail( $loader ) );
+		self::render_row( __( 'Discovery time', 'tenup-framework' ), self::format_duration( $loader['discovery_seconds'] ?? null ) );
+		self::render_row( __( 'Class lookup time', 'tenup-framework' ), self::format_duration( $loader['lookup_seconds'] ?? null ) );
 		echo '</tbody></table>';
 
 		echo '<details class="tenup-loader__classes">';
@@ -340,18 +354,27 @@ class LoaderDebug {
 			return;
 		}
 
-		$live    = ModuleInitialization::instance()->discover_live( $directory );
+		$live_start   = microtime( true );
+		$live         = ModuleInitialization::instance()->discover_live( $directory );
+		$live_seconds = microtime( true ) - $live_start;
+
 		$loaded  = array_values( $classes );
 		$removed = array_diff( $loaded, $live ); // In cache but no longer on disk.
 		$added   = array_diff( $live, $loaded ); // On disk but missing from the cache.
 
+		$timing = sprintf(
+			/* translators: %s: formatted duration. */
+			__( 'Live discovery took %s.', 'tenup-framework' ),
+			self::format_duration( $live_seconds )
+		);
+
 		if ( empty( $removed ) && empty( $added ) ) {
-			echo '<div class="tenup-notice tenup-notice--ok"><strong>' . esc_html__( 'Up to date — the cache matches a live scan.', 'tenup-framework' ) . '</strong></div>';
+			echo '<div class="tenup-notice tenup-notice--ok"><strong>' . esc_html__( 'Up to date — the cache matches a live scan.', 'tenup-framework' ) . '</strong> ' . esc_html( $timing ) . '</div>';
 			return;
 		}
 
 		echo '<div class="tenup-notice tenup-notice--error">';
-		echo '<strong>' . esc_html__( 'Stale — the cache differs from a live scan.', 'tenup-framework' ) . '</strong>';
+		echo '<strong>' . esc_html__( 'Stale — the cache differs from a live scan.', 'tenup-framework' ) . '</strong> ' . esc_html( $timing );
 
 		if ( ! empty( $added ) ) {
 			echo '<p>' . esc_html__( 'On disk but missing from the cache:', 'tenup-framework' ) . '</p><ul>';
@@ -383,6 +406,39 @@ class LoaderDebug {
 	 */
 	protected static function to_string( $value ): string {
 		return is_scalar( $value ) ? (string) $value : '';
+	}
+
+	/**
+	 * Format a duration in seconds for display, choosing a sensible unit. Values arrive through
+	 * a filter as mixed, so anything non-numeric or non-positive renders as a placeholder.
+	 *
+	 * @param mixed $seconds The duration in seconds.
+	 *
+	 * @return string
+	 */
+	protected static function format_duration( $seconds ): string {
+		$seconds = is_numeric( $seconds ) ? (float) $seconds : 0.0;
+
+		// Values arrive through the cross-copy filter as mixed, so reject non-positive and
+		// non-finite (INF/NAN) input rather than rendering "inf s" / "nan s".
+		if ( $seconds <= 0.0 || ! is_finite( $seconds ) ) {
+			return '—';
+		}
+
+		$milliseconds = $seconds * 1000;
+
+		if ( $milliseconds < 1 ) {
+			/* translators: %s: duration in milliseconds. */
+			return sprintf( __( '%s ms', 'tenup-framework' ), number_format( $milliseconds, 3 ) );
+		}
+
+		if ( $milliseconds < 1000 ) {
+			/* translators: %s: duration in milliseconds. */
+			return sprintf( __( '%s ms', 'tenup-framework' ), number_format( $milliseconds, 2 ) );
+		}
+
+		/* translators: %s: duration in seconds. */
+		return sprintf( __( '%s s', 'tenup-framework' ), number_format( $seconds, 2 ) );
 	}
 
 	/**
@@ -517,7 +573,8 @@ class LoaderDebug {
 	}
 
 	/**
-	 * A short description of the cache file on disk (age and size), or a placeholder when none.
+	 * A short description of the cache file on disk — relative age, size, and the absolute build
+	 * time in UTC — or a placeholder when none. Format: "Built <age> ago · <size> (<utc>)".
 	 *
 	 * @param array $loader The loader record.
 	 *
@@ -533,11 +590,20 @@ class LoaderDebug {
 		$mtime = (int) filemtime( $cache_file );
 		$size  = (int) filesize( $cache_file );
 
+		if ( ! $mtime ) {
+			return sprintf(
+				/* translators: %s: file size. */
+				__( 'Built at an unknown time · %s', 'tenup-framework' ),
+				size_format( $size )
+			);
+		}
+
 		return sprintf(
-			/* translators: 1: relative age, 2: file size. */
-			__( 'Built %1$s ago · %2$s', 'tenup-framework' ),
-			$mtime ? human_time_diff( $mtime ) : __( 'unknown time', 'tenup-framework' ),
-			size_format( $size )
+			/* translators: 1: relative age (e.g. "5 minutes"); 2: file size; 3: absolute build time in UTC. */
+			__( 'Built %1$s ago · %2$s · %3$s', 'tenup-framework' ),
+			human_time_diff( $mtime ),
+			size_format( $size ),
+			gmdate( 'Y-m-d H:i:s', $mtime ) . ' UTC'
 		);
 	}
 
@@ -548,7 +614,7 @@ class LoaderDebug {
 	 */
 	protected static function render_styles() {
 		echo '<style>
-			.tenup-loaders .tenup-loader { max-width: 60em; margin: 1.25em 0; padding: .5em 1.25em 1.25em; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; }
+			.tenup-loaders .tenup-loader { width: fit-content; min-width: min(60em, 100%); max-width: 100%; margin: 1.25em 0; padding: .5em 1.25em 1.25em; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; }
 			.tenup-loaders .tenup-loader__head { display: flex; align-items: center; gap: .75em; flex-wrap: wrap; }
 			.tenup-loaders .tenup-loader__head h2 { margin: .5em 0; }
 			.tenup-loaders .tenup-badge { display: inline-block; padding: .15em .7em; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid; }
@@ -566,6 +632,7 @@ class LoaderDebug {
 			.tenup-loaders .tenup-loader__classes { margin: .5em 0; }
 			.tenup-loaders .tenup-loader__classes summary { cursor: pointer; font-weight: 600; padding: .4em 0; }
 			.tenup-loaders .tenup-loader__class-table { margin: .5em 0 1em; }
+			.tenup-loaders .tenup-loader__meta td code, .tenup-loaders .tenup-loader__class-table td code { overflow-wrap: anywhere; }
 			.tenup-loaders .tenup-loader__actions { margin: .75em 0 0; }
 		</style>';
 	}
