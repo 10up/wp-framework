@@ -53,6 +53,9 @@ trait FrameworkTestSetup {
 		stubs(
 			[
 				'wp_get_environment_type'           => 'local',
+				// Default to the front end so existing tests don't trigger admin-only debug
+				// recording; admin tests override this with their own stub.
+				'is_admin'                          => false,
 				'sanitize_title'                    => function ( $title ) {
 					return str_replace( ' ', '-', strtolower( $title ) );
 				},
@@ -68,6 +71,51 @@ trait FrameworkTestSetup {
 
 		stubEscapeFunctions();
 		stubTranslationFunctions();
+
+		$this->reset_module_initialization();
+		$this->reset_loader_debug();
+	}
+
+	/**
+	 * Reset the ModuleInitialization singleton so its accumulated `$classes` do not leak between
+	 * tests. The suite is not process-isolated (the trait-level annotation does not take effect),
+	 * so without this a class registered in one test would be seen as "already initialized" in a
+	 * later one.
+	 *
+	 * @return void
+	 */
+	protected function reset_module_initialization(): void {
+		if ( ! class_exists( \TenupFramework\ModuleInitialization::class ) ) {
+			return;
+		}
+
+		$instance = ( new \ReflectionClass( \TenupFramework\ModuleInitialization::class ) )->getProperty( 'instance' );
+		$instance->setAccessible( true );
+		$instance->setValue( null, null );
+	}
+
+	/**
+	 * Reset the static state of the LoaderDebug registry so each test starts clean,
+	 * independent of test execution order or process isolation.
+	 *
+	 * @return void
+	 */
+	protected function reset_loader_debug(): void {
+		if ( ! class_exists( \TenupFramework\Debug\LoaderDebug::class ) ) {
+			return;
+		}
+
+		$reflection = new \ReflectionClass( \TenupFramework\Debug\LoaderDebug::class );
+
+		$loaders = $reflection->getProperty( 'loaders' );
+		$loaders->setAccessible( true );
+		$loaders->setValue( null, [] );
+
+		$booted = $reflection->getProperty( 'booted' );
+		$booted->setAccessible( true );
+		$booted->setValue( null, false );
+
+		unset( $GLOBALS['tenup_framework_debug_page_registered'] );
 	}
 
 	/**
