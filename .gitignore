@@ -1,3 +1,6 @@
 vendor/
 coverage/
 .phpunit.result.cache
+
+# Generated class-loader cache (a build artefact, not source)
+class-loader-cache/

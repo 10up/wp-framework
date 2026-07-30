@@ -78,11 +78,17 @@ add_action( 'plugins_loaded', function () {
 } );
 ```
 
-Environment caching:
-- Discovery results are cached only in production and staging environments (per `wp_get_environment_type()`).
-- Cache is stored under the directory you pass to `init_classes()`, in a "class-loader-cache" folder (e.g., `YOUR_PLUGIN_INC . 'class-loader-cache'`).
-- To refresh: delete that folder; it will be rebuilt automatically.
-- Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined or when `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` is set to `true`. Use `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true )` in environments that don't support writable file systems.
+Class caching (optional, build-time):
+- Discovery is fast, but on large codebases you can cache the discovered class list. The cache is **opt-in and produced at build time**: the framework reads it at runtime but never writes it, so it can never go stale on a server.
+- With no cache file present (the default), classes are discovered live on every request. This is correct and is the right default for small projects.
+- To produce a cache, run the shipped command in your build/deploy pipeline and ship the result as a build artefact:
+  ```bash
+  vendor/bin/tenup-framework-generate-class-cache YOUR_PLUGIN_INC
+  # or, via the Composer alias (see Build and Deployment):
+  composer generate-class-cache -- inc/
+  ```
+- Define `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` as `true` to ignore any shipped cache and always discover live (useful for debugging a suspected stale cache).
+- See [Build and Deployment](Build-and-Deployment.md) for CI examples and the per-package caching model.
 
 ## Defining a Module
 ```php
@@ -116,6 +122,7 @@ class YourModule implements ModuleInterface {
 ## See also
 - [Docs Home](README.md)
 - [Modules and Initialization](Modules-and-Initialization.md)
+- [Build and Deployment](Build-and-Deployment.md)
 - [Post Types](Post-Types.md)
 - [Taxonomies](Taxonomies.md)
 - [Asset Loading](Asset-Loading.md)

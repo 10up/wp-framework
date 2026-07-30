@@ -18,6 +18,9 @@
             "role": "Developer"
         }
     ],
+    "bin": [
+        "bin/tenup-framework-generate-class-cache"
+    ],
     "autoload": {
         "psr-4": {
             "TenupFramework\\": "src/"
@@ -30,7 +33,7 @@
         }
     },
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.3",
         "spatie/php-structure-discoverer": "^2.2"
     },
     "require-dev": {
@@ -41,9 +44,10 @@
         "php-stubs/wp-cli-stubs": "^2.11",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "10up/phpcs-composer": "^3.0",
-        "phpcompatibility/php-compatibility": "dev-develop as 9.99.99",
         "phpunit/php-code-coverage": "^9.2",
-        "slevomat/coding-standard": "^8.15"
+        "slevomat/coding-standard": "^8.15",
+        "rector/rector": "^2.0",
+        "tomasvotruba/type-coverage": "^2.0"
     },
     "scripts": {
         "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit",
@@ -52,7 +56,15 @@
         "static": [
             "Composer\\Config::disableProcessTimeout",
             "phpstan --memory-limit=1G"
-        ]
+        ],
+        "rector": [
+            "./vendor/bin/rector",
+            "composer run lint-fix"
+        ],
+        "generate-class-cache": "@php bin/tenup-framework-generate-class-cache"
+    },
+    "scripts-descriptions": {
+        "generate-class-cache": "Generate the class-loader cache for one or more directories, e.g. `composer generate-class-cache -- inc/`."
     },
     "config": {
         "allow-plugins": {

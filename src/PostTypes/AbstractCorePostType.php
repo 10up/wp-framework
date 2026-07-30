@@ -22,10 +22,8 @@ abstract class AbstractCorePostType extends AbstractPostType {
 	 * Get the singular post type label.
 	 *
 	 * No-op for core post types since they are already registered by WordPress.
-	 *
-	 * @return string
 	 */
-	public function get_singular_label() {
+	public function get_singular_label(): string {
 		return '';
 	}
 
@@ -33,10 +31,8 @@ abstract class AbstractCorePostType extends AbstractPostType {
 	 * Get the plural post type label.
 	 *
 	 * No-op for core post types since they are already registered by WordPress.
-	 *
-	 * @return string
 	 */
-	public function get_plural_label() {
+	public function get_plural_label(): string {
 		return '';
 	}
 
@@ -44,10 +40,8 @@ abstract class AbstractCorePostType extends AbstractPostType {
 	 * Get the menu icon for the post type.
 	 *
 	 * No-op for core post types since they are already registered by WordPress.
-	 *
-	 * @return string
 	 */
-	public function get_menu_icon() {
+	public function get_menu_icon(): string {
 		return '';
 	}
 
@@ -55,23 +49,16 @@ abstract class AbstractCorePostType extends AbstractPostType {
 	 * Checks whether the Module should run within the current context.
 	 *
 	 * True for core post types since they are already registered by WordPress.
-	 *
-	 * @return bool
 	 */
-	public function can_register() {
+	public function can_register(): bool {
 		return true;
 	}
 
 	/**
 	 * Registers a post type and associates its taxonomies.
-	 *
-	 * @uses $this->get_name() to get the post's type name.
-	 * @return Bool Whether this theme has supports for this post type.
 	 */
-	public function register() {
+	public function register(): void {
 		$this->register_taxonomies();
 		$this->after_register();
-
-		return true;
 	}
 }

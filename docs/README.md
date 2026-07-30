@@ -5,6 +5,7 @@ WP Framework is a lightweight set of building blocks for structuring WordPress p
 - Base classes for custom and core post types
 - Base class for taxonomies
 - Asset helpers that read modern build sidecars (`.asset.php`)
+- Core modules for common WordPress functionality modifications
 
 ## Who is this for?
 - External engineers — Start here: follow the Quick Start and then read Autoloading and Modules → Modules and Initialization → Post Types/Taxonomies → Asset Loading.
@@ -17,13 +18,18 @@ WP Framework is a lightweight set of building blocks for structuring WordPress p
 3) Initialize modules: `TenupFramework\ModuleInitialization::instance()->init_classes( YOUR_PLUGIN_INC )`.
 4) Implement small classes that implement `ModuleInterface` (use the `Module` trait) and optionally extend `AbstractPostType` / `AbstractTaxonomy`.
 5) Load assets via the `GetAssetInfo` trait using dist/.asset.php sidecars.
+6) Optionally opt into Core modules for common WordPress functionality modifications.
 
 ## Table of Contents
+- [Upgrade Guide](Upgrade-Guide.md) — breaking changes and how to migrate (start here when updating a major version)
 - [Autoloading and Modules](Autoloading.md) — how classes are discovered and initialized
 - [Modules and Initialization](Modules-and-Initialization.md)
+- [Build and Deployment](Build-and-Deployment.md) — generating the class cache and wiring it into CI
+- [Debugging class loaders](Debugging.md) — the hidden admin page for inspecting caches
 - [Post Types](Post-Types.md) — building custom and core post type integrations
 - [Taxonomies](Taxonomies.md) — registering and configuring taxonomies
 - [Asset Loading](Asset-Loading.md) — working with dist/.asset.php for dependencies and versioning
+- [Core Modules](Core-Modules.md) — WordPress functionality modification modules
 
 ## Conventions
 - Namespaces: use your project namespace (e.g., `YourVendor\\YourPlugin`) for app code; reference framework classes via the TenupFramework namespace.
