@@ -115,6 +115,63 @@ class GenerateClassCacheTest extends TestCase {
 	}
 
 	/**
+	 * A cache that cannot be written fails loudly instead of reporting success.
+	 *
+	 * Spatie's file driver ignores the return values of mkdir()/file_put_contents(), so without
+	 * an explicit check the command printed "Cached N class(es)" and exited 0 having written
+	 * nothing — a broken build staying green.
+	 *
+	 * @return void
+	 */
+	public function test_unwritable_directory_fails_instead_of_reporting_success() {
+		$dir = $this->example_copy( 'plugin-inc' );
+		chmod( $dir, 0555 );
+
+		$result = $this->run_bin( [ $dir ] );
+
+		// Restore permissions first so teardown can always clean up.
+		chmod( $dir, 0755 );
+
+		$this->assertSame( 1, $result['exit'], 'An unwritable target must fail the build.' );
+		$this->assertStringContainsString( 'Failed to write the class cache', $result['stderr'] );
+		$this->assertStringNotContainsString( 'Cached', $result['stdout'] );
+		$this->assertFileDoesNotExist( $this->cache_file_path( $dir ) );
+	}
+
+	/**
+	 * A regenerate that cannot replace the previous build's cache fails the build rather than
+	 * leaving the old file to be deployed as if it were freshly built (issue #30).
+	 *
+	 * The old file is unlinked before the write, so a write that fails for a reason unrelated to
+	 * directory permissions (a full disk) leaves nothing behind. When the directory itself is
+	 * unwritable the old file cannot be removed at all — so the guarantee that matters is the
+	 * non-zero exit, which stops the pipeline before it can ship the stale cache.
+	 *
+	 * @return void
+	 */
+	public function test_regenerate_that_cannot_replace_a_stale_cache_fails_the_build() {
+		$dir = $this->example_copy( 'plugin-inc' );
+
+		// First build succeeds.
+		$this->assertSame( 0, $this->run_bin( [ $dir ] )['exit'] );
+		$cache_file = $this->cache_file_path( $dir );
+		$this->assertFileExists( $cache_file );
+
+		// Make only the cache directory unwritable, so the rewrite cannot happen.
+		$cache_dir = dirname( $cache_file );
+		chmod( $cache_dir, 0555 );
+
+		$result = $this->run_bin( [ $dir ] );
+
+		// Restore permissions first so teardown can always clean up.
+		chmod( $cache_dir, 0755 );
+
+		$this->assertSame( 1, $result['exit'], 'A cache that cannot be replaced must fail the build.' );
+		$this->assertStringContainsString( 'Could not remove the existing class cache', $result['stderr'] );
+		$this->assertStringNotContainsString( 'Cached', $result['stdout'] );
+	}
+
+	/**
 	 * Run the bin script with the given arguments, returning its stdout, stderr and exit code.
 	 *
 	 * @param array<int, string> $args The arguments to pass after the script name.

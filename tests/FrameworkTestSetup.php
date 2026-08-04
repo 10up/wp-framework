@@ -77,10 +77,11 @@ trait FrameworkTestSetup {
 	}
 
 	/**
-	 * Reset the ModuleInitialization singleton so its accumulated `$classes` do not leak between
-	 * tests. The suite is not process-isolated (the trait-level annotation does not take effect),
-	 * so without this a class registered in one test would be seen as "already initialized" in a
-	 * later one.
+	 * Reset the ModuleInitialization singleton so its accumulated `$classes` do not leak
+	 * between tests.
+	 *
+	 * Since here the `@runTestsInSeparateProcesses` annotation on this trait *is* in effect,
+	 * this guards in case of removed trait annotation of multiple single test init_classes() calls.
 	 *
 	 * @return void
 	 */
@@ -90,7 +91,6 @@ trait FrameworkTestSetup {
 		}
 
 		$instance = ( new \ReflectionClass( \TenupFramework\ModuleInitialization::class ) )->getProperty( 'instance' );
-		$instance->setAccessible( true );
 		$instance->setValue( null, null );
 	}
 
@@ -107,13 +107,8 @@ trait FrameworkTestSetup {
 
 		$reflection = new \ReflectionClass( \TenupFramework\Debug\LoaderDebug::class );
 
-		$loaders = $reflection->getProperty( 'loaders' );
-		$loaders->setAccessible( true );
-		$loaders->setValue( null, [] );
-
-		$booted = $reflection->getProperty( 'booted' );
-		$booted->setAccessible( true );
-		$booted->setValue( null, false );
+		$reflection->getProperty( 'loaders' )->setValue( null, [] );
+		$reflection->getProperty( 'booted' )->setValue( null, false );
 
 		unset( $GLOBALS['tenup_framework_debug_page_registered'] );
 	}

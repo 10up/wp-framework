@@ -262,6 +262,14 @@ class ModuleInitializationTest extends TestCase {
 	 * Defining TENUP_FRAMEWORK_DISABLE_CLASS_CACHE forces live discovery even when a
 	 * cache file is present.
 	 *
+	 * The define() below is process-wide and cannot be undone, so this test must not share a
+	 * process with the tests that assert a cache *is* used. The trait-level
+	 * `@runTestsInSeparateProcesses` already guarantees that; the explicit annotation here
+	 * makes the requirement local and survives that annotation being removed.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 *
 	 * @return void
 	 */
 	public function test_disable_constant_forces_live_discovery() {

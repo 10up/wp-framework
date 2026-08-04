@@ -95,11 +95,16 @@ Because nothing in the runtime announces whether caching is on, confirm it expli
 /wp-admin/admin.php?page=tenup-framework-loaders
 ```
 
-For each loader it shows a **Cache status** line:
+Each loader carries a status badge:
 
-- *"discovering live on every request"* — no cache is in use (expected if you didn't add the build
-  step).
-- *"Cache in use …"* — a pre-built cache is being read (expected after wiring in the build step).
+- **Uncached — live discovery** — no cache is in use, so classes are discovered on every request
+  (expected if you didn't add the build step).
+- **Cache in use** — a pre-built cache is being read (expected after wiring in the build step).
+- **Caching disabled** — `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` is set, so any shipped cache is
+  ignored.
+- **Cache failed to load — running live** — a cache file is present but could not be read; rebuild
+  it in your pipeline and redeploy.
+- **Cache present but not used** — a cache file exists that the loader did not read.
 
 Use the per-loader **staleness check** to confirm a shipped cache matches what's on disk.
 
