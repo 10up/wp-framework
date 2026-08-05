@@ -96,6 +96,9 @@ class ModuleInitialization {
 	 *
 	 * @param string $dir The directory to search for classes.
 	 *
+	 * @throws \RuntimeException If the Module directory does not exist.
+	 * @throws \Throwable If the live cache fallback fails to load.
+	 *
 	 * @return array<string>
 	 */
 	public function get_classes( $dir ) {
@@ -106,7 +109,7 @@ class ModuleInitialization {
 		// The runtime only ever reads a pre-built cache; it never writes one. Caching is
 		// therefore opt-in: with no cache file present we discover live on every request,
 		// which is the correct default. A cache is produced at build time via the
-		// `tenup-framework-generate-class-cache` command and shipped as a build artefact.
+		// `tenup-framework-generate-class-cache` command and shipped as a build artifact.
 		//
 		// Define TENUP_FRAMEWORK_DISABLE_CLASS_CACHE to ignore any shipped cache and always
 		// discover live (useful for debugging).
@@ -123,16 +126,10 @@ class ModuleInitialization {
 
 		$this->cache_read_failed = false;
 
+		// Module class cache failure management - live fallback Discover::get() can issue a Throwable
 		try {
-			// array_filter is inside the try so that a cache which parses but returns a
-			// non-array (not only a truncated one) also falls back rather than fataling here.
 			return array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
 		} catch ( \Throwable $e ) {
-			// A shipped cache file that is corrupt or truncated — a partial deploy, an
-			// interrupted build, a half-written rsync — would otherwise fatal on every request
-			// (the cache is executable PHP loaded with `require`). Fall back to a fresh live
-			// discovery so the site keeps working, uncached, until the cache is rebuilt. This
-			// is the same spirit as issue #30: a bad cache must never take the site down.
 			$this->cache_read_failed = true;
 
 			if ( function_exists( 'do_action' ) ) {
@@ -147,6 +144,7 @@ class ModuleInitialization {
 				do_action( 'tenup_framework_cache_load_failed', $dir, $e );
 			}
 
+			// Live directory discovery fallback (issue #30) in case of cache failure.
 			return array_filter( $this->build_discoverer( $dir )->get(), fn( $cl ) => is_string( $cl ) );
 		}
 	}
@@ -157,9 +155,12 @@ class ModuleInitialization {
 	 * This is the build-time counterpart to get_classes(): it is the only place the
 	 * framework writes the cache, and it deliberately makes no WordPress calls so it can
 	 * run from a plain CLI script during CI without bootstrapping WordPress. The resulting
-	 * file is then deployed as a build artefact and read (never rewritten) at runtime.
+	 * file is then deployed as a build artifact and read (never rewritten) at runtime.
 	 *
 	 * @param string $dir The directory to search for classes.
+	 *
+	 * @throws \RuntimeException If a cache from a previous build cannot be cleared, or if no
+	 *                           cache file was written.
 	 *
 	 * @return array<string> The discovered class names that were cached.
 	 */
@@ -177,9 +178,26 @@ class ModuleInitialization {
 			)
 		);
 
-		// cache() forces a fresh discovery and overwrites any existing cache file, so a
-		// regenerate always reflects the current code rather than a previous build.
+		$cache_file = $this->get_cache_directory( $dir ) . '/' . self::CACHE_FILENAME;
+
+		// Clear previous cache file *before* writing (avoiding issue #30), for in place rebuilds.
+		// No WordPress bootstrap, so unlink() is used over wp_delete_file().
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+		if ( file_exists( $cache_file ) && ! unlink( $cache_file ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			throw new \RuntimeException( 'Could not remove the existing class cache at "' . $cache_file . '".' );
+		}
+
 		$classes = $class_finder->cache();
+
+		// Spatie's file driver writes with mkdir()/file_put_contents(), discarding return values.
+		// This can surface an un-writable target or a full disk, avoiding false positives builds.
+		clearstatcache( true, $cache_file );
+
+		if ( ! is_file( $cache_file ) || filesize( $cache_file ) < 1 ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			throw new \RuntimeException( 'Failed to write the class cache to "' . $cache_file . '". Check the directory is writable and the disk is not full.' );
+		}
 
 		return array_filter( $classes, fn( $cl ) => is_string( $cl ) );
 	}

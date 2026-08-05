@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file, per [the Ke
 - The class-loader cache is now **read-only at runtime** and opt-in. The framework reads a pre-built cache if present and discovers live otherwise, but never writes one on the server — fixing stale caches that could only be cleared by hand ([#30](https://github.com/10up/wp-framework/issues/30)).
 - A corrupt or truncated shipped cache is caught at runtime and the request falls back to a live scan instead of fataling, so a bad cache degrades performance rather than taking the site down. The fallback fires a `tenup_framework_cache_load_failed` action (for logging or alerting) and the loader debug page flags that loader red as "Cache failed to load — running live" instead of reporting it as in use.
 - Bumped the cache filename so a cache written by an older version is ignored after upgrade rather than served stale.
+- `generate_cache()` now verifies the cache file was actually written and fails with a `RuntimeException` (a non-zero exit from the build command) when it was not. An un-writable target or a full disk previously produced only PHP warnings, so the command reported success and the build stayed green having shipped no cache — or, on a deploy that does not clean, the previous build's cache. Any writable cache location from an earlier build is cleared before the write so a failure cannot leave a stale file behind.
 - `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` now forces live discovery (ignores any shipped cache).
 
 ### Removed

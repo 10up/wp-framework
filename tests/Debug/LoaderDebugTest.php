@@ -193,7 +193,6 @@ class LoaderDebugTest extends TestCase {
 		define( 'WP_PLUGIN_DIR', '/srv/site/wp-content/plugins' );
 
 		$method = ( new \ReflectionClass( LoaderDebug::class ) )->getMethod( 'owner_label' );
-		$method->setAccessible( true );
 
 		$this->assertSame(
 			'Plugin: demo',
@@ -430,7 +429,6 @@ class LoaderDebugTest extends TestCase {
 	 */
 	private function invoke_protected( string $method, array $args ) {
 		$reflection = ( new \ReflectionClass( LoaderDebug::class ) )->getMethod( $method );
-		$reflection->setAccessible( true );
 
 		return $reflection->invokeArgs( null, $args );
 	}

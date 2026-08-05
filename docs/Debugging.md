@@ -74,6 +74,10 @@ add_action( 'tenup_framework_cache_load_failed', function ( $dir, $error ) {
 }, 10, 2 );
 ```
 
+The listener has to be registered *before* the loader that fails runs. Plugins typically call
+`init_classes()` as their main file loads, which is earlier than another plugin can hook, so to
+catch every loader reliably register this from an mu-plugin.
+
 The fix is to rebuild the cache in your pipeline and redeploy.
 
 ## Known limitations
