@@ -23,8 +23,7 @@ ModuleInitialization::instance()->init_classes( YOUR_PLUGIN_INC );
 ModuleInitialization performs the following steps:
 1. Validate the directory exists; otherwise throw a RuntimeException.
 2. Discover class names within the directory using spatie/structure-discoverer.
-   - In production and staging environments (wp_get_environment_type), results are cached for performance using a file-based cache.
-   - Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined.
+   - If a pre-built class cache is present it is read; otherwise classes are discovered live on every request. The runtime never writes the cache — see [Class caching](#class-caching) below.
 3. Reflect on each discovered class and skip any that:
    - are not instantiable,
    - do not implement `TenupFramework\ModuleInterface`.
@@ -35,12 +34,16 @@ ModuleInitialization performs the following steps:
 7. For each module, call `register()` only if `can_register()` returns true.
 8. Store initialized modules for later retrieval.
 
-Environment cache behavior
-- Where cache lives: under the directory you pass to `init_classes()`, in a `class-loader-cache` folder (e.g., `YOUR_PLUGIN_INC . 'class-loader-cache'`).
-- When it’s used: only in `production` and `staging` environment types (`wp_get_environment_type()`).
-- How to clear: delete the `class-loader-cache` folder; it will be rebuilt on next discovery.
-- How to disable in development: use `development` or `local` environment types, or define `VIP_GO_APP_ENVIRONMENT` to skip the cache.
-- How to disable for hosts that don't support file-based caching: `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true );` to skip caching altogether.
+## Class caching
+Caching the discovered class list is **optional and produced at build time**. The runtime only ever reads the cache; it never writes one, so a server cannot end up serving a stale cache it generated itself (the failure mode this model replaced — see [issue #30](https://github.com/10up/wp-framework/issues/30)).
+
+- Default (no cache file): classes are discovered live on every request. Correct, and the right default for small codebases — caching is opt-in.
+- With a cache file present: the framework reads it and skips discovery.
+- Where it lives: a `class-loader-cache` folder inside the directory you pass to `init_classes()`, e.g. `YOUR_PLUGIN_INC . 'class-loader-cache'`. The filename is versioned (`class-loader-cache-v2.php`) so a cache written by an older framework version is ignored after an upgrade rather than served stale; the old file is harmless cruft a clean deploy clears.
+- How to produce it: run `vendor/bin/tenup-framework-generate-class-cache <dir>` (or `composer generate-class-cache -- <dir>`) in your build/deploy pipeline and ship the result as a build artefact.
+- How to bypass: define `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` as `true` to ignore any shipped cache and always discover live.
+
+Gitignore the `class-loader-cache` directory and regenerate it on every deploy. See [Build and Deployment](Build-and-Deployment.md) for CI examples and the per-package caching model, and [Debugging class loaders](Debugging.md) for the hidden admin page that shows what each cache is loading and flags stale ones.
 
 Hooks
 - Action: `tenup_framework_module_init__{slug}` — fires before each module’s `register()` runs.

@@ -19,8 +19,11 @@ WP Framework is a lightweight set of building blocks for structuring WordPress p
 5) Load assets via the `GetAssetInfo` trait using dist/.asset.php sidecars.
 
 ## Table of Contents
+- [Upgrade Guide](Upgrade-Guide.md) — breaking changes and how to migrate (start here when updating a major version)
 - [Autoloading and Modules](Autoloading.md) — how classes are discovered and initialized
 - [Modules and Initialization](Modules-and-Initialization.md)
+- [Build and Deployment](Build-and-Deployment.md) — generating the class cache and wiring it into CI
+- [Debugging class loaders](Debugging.md) — the hidden admin page for inspecting caches
 - [Post Types](Post-Types.md) — building custom and core post type integrations
 - [Taxonomies](Taxonomies.md) — registering and configuring taxonomies
 - [Asset Loading](Asset-Loading.md) — working with dist/.asset.php for dependencies and versioning
