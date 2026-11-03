@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file, per [the Keep a Changelog standard](http://keepachangelog.com/) and will adhere to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - TBD
+### Added
+- A prebuilt class cache: `vendor/bin/wp-framework-cache <dir>` writes `class-loader-cache/classes.php` in a build step, and module discovery reads it on any host, including WordPress VIP and other read-only filesystems, while it matches the code. Discovery tokenizes every PHP file on each request where no cache can be written ([#41](https://github.com/10up/wp-framework/issues/41)).
+
+### Fixed
+- The runtime class cache is keyed by a hash of the directory's PHP files, so changing or adding a class rebuilds it instead of serving a stale class list ([#30](https://github.com/10up/wp-framework/issues/30)).
 
 ## [1.2.0] - 2025-03-20
 ### Changed

@@ -79,10 +79,22 @@ add_action( 'plugins_loaded', function () {
 ```
 
 Environment caching:
-- Discovery results are cached only in production and staging environments (per `wp_get_environment_type()`).
-- Cache is stored under the directory you pass to `init_classes()`, in a "class-loader-cache" folder (e.g., `YOUR_PLUGIN_INC . 'class-loader-cache'`).
-- To refresh: delete that folder; it will be rebuilt automatically.
-- Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined or when `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` is set to `true`. Use `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true )` in environments that don't support writable file systems.
+- Discovery tokenizes every PHP file in the directory, so it is cached. Both caches live under the directory you pass to `init_classes()`, in a "class-loader-cache" folder (e.g., `YOUR_PLUGIN_INC . 'class-loader-cache'`).
+- **Prebuilt cache (recommended for production).** Run `vendor/bin/wp-framework-cache <dir>` in your build step after `composer install` and ship the generated `class-loader-cache/classes.php` with the code. It is read on every host, including read-only ones like WordPress VIP, and only while it matches the code: it stores a hash of the directory's PHP files, so a stale cache is ignored and discovery runs instead. See [Prebuilt class cache](#prebuilt-class-cache).
+- **Runtime cache.** Without a prebuilt cache, discovery results are written on the first request in production and staging environments (per `wp_get_environment_type()`). It is keyed by the same hash, so changing a class rebuilds it. It is skipped when the constant `VIP_GO_APP_ENVIRONMENT` is defined, since VIP's filesystem is read-only.
+- `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true )` turns off both caches.
+
+### Prebuilt class cache
+
+Generate it for each directory you pass to `init_classes()`, after `composer install`, in CI or your release build:
+
+```sh
+vendor/bin/wp-framework-cache src
+# several at once, e.g. a theme and a plugin
+vendor/bin/wp-framework-cache themes/my-theme/src plugins/my-plugin/src
+```
+
+The command doesn't need WordPress. Commit the generated folder to your built or deployed branch, not your source branch (add `class-loader-cache/` to `.gitignore` there), and regenerate it on every build. On a project's local environment, a missing or outdated cache just falls back to discovery.
 
 ## Defining a Module
 ```php
