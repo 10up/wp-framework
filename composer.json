@@ -45,6 +45,9 @@
         "phpunit/php-code-coverage": "^9.2",
         "slevomat/coding-standard": "^8.15"
     },
+    "bin": [
+        "bin/wp-framework-cache"
+    ],
     "scripts": {
         "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit",
         "lint": "./vendor/bin/phpcs --standard=./phpcs.xml",

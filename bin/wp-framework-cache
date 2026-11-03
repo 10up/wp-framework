@@ -1,0 +1,61 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Writes the prebuilt class cache for one or more module directories.
+ *
+ * Run it in a build step, after `composer install`, so the cache ships with the
+ * code and no request has to discover classes:
+ *
+ *     vendor/bin/wp-framework-cache src
+ *     vendor/bin/wp-framework-cache plugins/my-plugin/src themes/my-theme/src
+ *
+ * Each directory gets `class-loader-cache/classes.php`. It doesn't need
+ * WordPress.
+ *
+ * @package TenupFramework
+ */
+
+declare( strict_types = 1 );
+
+// Composer sets this for its bin proxies; the fallbacks cover running the
+// script from a clone of this package or from vendor/10up/wp-framework/bin.
+$autoloaders = array_filter(
+	[
+		$GLOBALS['_composer_autoload_path'] ?? null,
+		__DIR__ . '/../vendor/autoload.php',
+		__DIR__ . '/../../../autoload.php',
+	]
+);
+
+foreach ( $autoloaders as $autoloader ) {
+	if ( is_file( $autoloader ) ) {
+		require_once $autoloader;
+		break;
+	}
+}
+
+if ( ! class_exists( \TenupFramework\ClassCache::class ) ) {
+	fwrite( STDERR, "wp-framework-cache: run `composer install` first; the autoloader wasn't found.\n" );
+	exit( 1 );
+}
+
+$dirs = array_slice( $argv, 1 );
+
+if ( [] === $dirs || in_array( $dirs[0], [ '-h', '--help' ], true ) ) {
+	fwrite( STDOUT, "Usage: wp-framework-cache <dir> [<dir> ...]\nWrites <dir>/class-loader-cache/classes.php for each module directory.\n" );
+	exit( [] === $dirs ? 1 : 0 );
+}
+
+$failed = false;
+
+foreach ( $dirs as $dir ) {
+	try {
+		$classes = \TenupFramework\ClassCache::write( $dir );
+		fwrite( STDOUT, sprintf( "%s: %d classes -> %s\n", $dir, count( $classes ), \TenupFramework\ClassCache::path( $dir ) ) );
+	} catch ( \RuntimeException $exception ) {
+		fwrite( STDERR, 'wp-framework-cache: ' . $exception->getMessage() . "\n" );
+		$failed = true;
+	}
+}
+
+exit( $failed ? 1 : 0 );

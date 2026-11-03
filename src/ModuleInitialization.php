@@ -64,6 +64,19 @@ class ModuleInitialization {
 	public function get_classes( $dir ) {
 		$this->directory_check( $dir );
 
+		$hash = null;
+
+		// A cache a build step generated is used on any host, including read-only
+		// ones like WordPress VIP, as long as it still matches the code.
+		if ( ! $this->is_cache_disabled() ) {
+			$hash     = ClassCache::hash( $dir );
+			$prebuilt = ClassCache::read( $dir, $hash );
+
+			if ( null !== $prebuilt ) {
+				return $prebuilt;
+			}
+		}
+
 		// Get all classes from this directory and its subdirectories.
 		$class_finder = Discover::in( $dir );
 		// Only fetch classes.
@@ -72,10 +85,11 @@ class ModuleInitialization {
 		$class_finder->withoutChains();
 
 		// If we are in production or staging, cache the class loader to improve performance.
+		// The cache is keyed by the code's hash, so a change to any class rebuilds it.
 		if ( $this->should_use_cache() ) {
 			$class_finder->withCache(
-				__NAMESPACE__,
-				new FileDiscoverCacheDriver( $dir . '/class-loader-cache' )
+				__NAMESPACE__ . '-' . ( $hash ?? ClassCache::hash( $dir ) ),
+				new FileDiscoverCacheDriver( $dir . '/' . ClassCache::DIRECTORY )
 			);
 		}
 
@@ -86,24 +100,29 @@ class ModuleInitialization {
 	}
 
 	/**
-	 * Should we set up and use the class cache?
+	 * Should we write and use the runtime class cache?
+	 *
+	 * The runtime cache is written on the first request, so it is skipped on
+	 * WordPress VIP, whose filesystem is read-only. A prebuilt cache
+	 * (see ClassCache) is still read there.
 	 *
 	 * @return bool
 	 */
 	protected function should_use_cache(): bool {
-		if ( defined( 'VIP_GO_APP_ENVIRONMENT' ) ) {
+		if ( $this->is_cache_disabled() || defined( 'VIP_GO_APP_ENVIRONMENT' ) ) {
 			return false;
 		}
 
-		if ( ! in_array( wp_get_environment_type(), [ 'production', 'staging' ], true ) ) {
-			return false;
-		}
+		return in_array( wp_get_environment_type(), [ 'production', 'staging' ], true );
+	}
 
-		if ( defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE ) {
-			return false;
-		}
-
-		return true;
+	/**
+	 * Is every class cache, prebuilt and runtime, turned off?
+	 *
+	 * @return bool
+	 */
+	protected function is_cache_disabled(): bool {
+		return defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE;
 	}
 
 	/**
