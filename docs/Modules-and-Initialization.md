@@ -25,6 +25,7 @@ ModuleInitialization performs the following steps:
 2. Discover class names within the directory using spatie/structure-discoverer.
    - In production and staging environments (wp_get_environment_type), results are cached for performance using a file-based cache.
    - Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined.
+   - A cache built with `vendor/bin/tenup-framework-generate-class-cache` is read first, on any host, VIP included. See [Autoloading](Autoloading.md).
 3. Reflect on each discovered class and skip any that:
    - are not instantiable,
    - do not implement `TenupFramework\ModuleInterface`.

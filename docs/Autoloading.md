@@ -84,6 +84,17 @@ Environment caching:
 - To refresh: delete that folder; it will be rebuilt automatically.
 - Caching is skipped entirely when the constant `VIP_GO_APP_ENVIRONMENT` is defined or when `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` is set to `true`. Use `define( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE', true )` in environments that don't support writable file systems.
 
+Prebuilt cache (read-only hosts such as WordPress VIP):
+- Without a cache, discovery tokenizes every PHP file in the directory on every request. On hosts where the runtime cache can't be written, that's every request.
+- Build the cache in CI instead, after `composer install`, for each directory you pass to `init_classes()`:
+  ```bash
+  vendor/bin/tenup-framework-generate-class-cache path/to/plugin/src path/to/theme/src
+  ```
+  It writes `class-loader-cache/class-loader-cache-v2.php` in each directory and doesn't need WordPress.
+- When that file exists, it is read on any host, VIP included, and never written at runtime. Without it, nothing changes.
+- Regenerate it on every build, and don't commit it: the runtime doesn't check it against your code. Ignore `class-loader-cache/` in git.
+- `TENUP_FRAMEWORK_DISABLE_CLASS_CACHE` ignores it too. The action `tenup_framework_cache_load_failed` fires if the file can't be read, and discovery runs instead.
+
 ## Defining a Module
 ```php
 namespace YourVendor\YourPlugin\Features;

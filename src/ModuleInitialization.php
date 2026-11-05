@@ -13,6 +13,7 @@ use ReflectionClass;
 use Spatie\StructureDiscoverer\Cache\FileDiscoverCacheDriver;
 use Spatie\StructureDiscoverer\Data\DiscoveredStructure;
 use Spatie\StructureDiscoverer\Discover;
+use TenupFramework\Cache\ReadOnlyFileDiscoverCacheDriver;
 
 /**
  * ModuleInitialization class.
@@ -20,6 +21,31 @@ use Spatie\StructureDiscoverer\Discover;
  * @package TenupFramework
  */
 class ModuleInitialization {
+
+	/**
+	 * The directory name, within the discovery directory, that holds the class cache.
+	 *
+	 * @var string
+	 */
+	public const CACHE_DIR_NAME = 'class-loader-cache';
+
+	/**
+	 * The filename of the cache `tenup-framework-generate-class-cache` builds.
+	 *
+	 * Matches the name 2.0.0 reads, so a build step added for 1.x keeps working
+	 * after the upgrade. It differs from the runtime cache's default filename, so
+	 * the two never collide.
+	 *
+	 * @var string
+	 */
+	public const CACHE_FILENAME = 'class-loader-cache-v2.php';
+
+	/**
+	 * The Spatie cache identifier of the prebuilt cache.
+	 *
+	 * @var string
+	 */
+	public const CACHE_ID = 'TenupFramework';
 
 	/**
 	 * The class instance.
@@ -64,12 +90,13 @@ class ModuleInitialization {
 	public function get_classes( $dir ) {
 		$this->directory_check( $dir );
 
-		// Get all classes from this directory and its subdirectories.
-		$class_finder = Discover::in( $dir );
-		// Only fetch classes.
-		$class_finder->classes();
-		// Disable inheritance chain resolution
-		$class_finder->withoutChains();
+		$prebuilt = $this->get_prebuilt_classes( $dir );
+
+		if ( null !== $prebuilt ) {
+			return $prebuilt;
+		}
+
+		$class_finder = $this->build_discoverer( $dir );
 
 		// If we are in production or staging, cache the class loader to improve performance.
 		if ( $this->should_use_cache() ) {
@@ -83,6 +110,111 @@ class ModuleInitialization {
 
 		// Return the classes
 		return $classes;
+	}
+
+	/**
+	 * Read the class list from a cache built by `tenup-framework-generate-class-cache`.
+	 *
+	 * Read on any host, WordPress VIP included, which is where it matters most: the
+	 * runtime cache can't be written there, so without a prebuilt one every request
+	 * tokenizes every PHP file in the directory. The file is never written at
+	 * runtime. A missing cache, or one that fails to load (a truncated deploy, say),
+	 * returns null and discovery carries on exactly as it would without it.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return array<string>|null The cached class names, or null to discover instead.
+	 */
+	protected function get_prebuilt_classes( $dir ): ?array {
+		if ( $this->cache_disabled() || ! file_exists( $this->get_cache_directory( $dir ) . '/' . self::CACHE_FILENAME ) ) {
+			return null;
+		}
+
+		$class_finder = $this->build_discoverer( $dir );
+		$class_finder->withCache(
+			self::CACHE_ID,
+			new ReadOnlyFileDiscoverCacheDriver( $this->get_cache_directory( $dir ), false, self::CACHE_FILENAME )
+		);
+
+		try {
+			// Inside the try, so a file that parses but doesn't return an array falls back too.
+			return array_filter( $class_finder->get(), fn( $cl ) => is_string( $cl ) );
+		} catch ( \Throwable $e ) {
+			if ( function_exists( 'do_action' ) ) {
+				/**
+				 * Fires when a prebuilt class cache could not be read and discovery ran instead.
+				 *
+				 * @param string     $dir The directory whose cache failed to load.
+				 * @param \Throwable $e   The error raised while reading the cache.
+				 */
+				do_action( 'tenup_framework_cache_load_failed', $dir, $e );
+			}
+
+			return null;
+		}
+	}
+
+	/**
+	 * Generate the prebuilt class cache for a directory and write it to disk.
+	 *
+	 * The build-time counterpart to get_prebuilt_classes(), run by
+	 * `tenup-framework-generate-class-cache`. It makes no WordPress calls, so it runs
+	 * in CI without bootstrapping WordPress.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return array<string> The discovered class names that were cached.
+	 */
+	public function generate_cache( $dir = '' ) {
+		$this->directory_check( $dir );
+
+		$class_finder = $this->build_discoverer( $dir );
+		$class_finder->withCache(
+			self::CACHE_ID,
+			new FileDiscoverCacheDriver( $this->get_cache_directory( $dir ), false, self::CACHE_FILENAME )
+		);
+
+		// cache() always discovers afresh and overwrites any existing file.
+		return array_filter( $class_finder->cache(), fn( $cl ) => is_string( $cl ) );
+	}
+
+	/**
+	 * A discoverer configured the same way for reading, generating and discovering,
+	 * so the three can't drift apart.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return Discover
+	 */
+	protected function build_discoverer( $dir ): Discover {
+		// Get all classes from this directory and its subdirectories.
+		$class_finder = Discover::in( $dir );
+		// Only fetch classes.
+		$class_finder->classes();
+		// Disable inheritance chain resolution.
+		$class_finder->withoutChains();
+
+		return $class_finder;
+	}
+
+	/**
+	 * The absolute path to the cache directory for a discovery directory.
+	 *
+	 * @param string $dir The directory to search for classes.
+	 *
+	 * @return string
+	 */
+	protected function get_cache_directory( $dir ): string {
+		return rtrim( $dir, '/' ) . '/' . self::CACHE_DIR_NAME;
+	}
+
+	/**
+	 * Whether class caching has been turned off with TENUP_FRAMEWORK_DISABLE_CLASS_CACHE.
+	 *
+	 * @return bool
+	 */
+	protected function cache_disabled(): bool {
+		return defined( 'TENUP_FRAMEWORK_DISABLE_CLASS_CACHE' ) && true === TENUP_FRAMEWORK_DISABLE_CLASS_CACHE;
 	}
 
 	/**
