@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file, per [the Keep a Changelog standard](http://keepachangelog.com/) and will adhere to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased] - TBD
+### Added
+- `vendor/bin/tenup-framework-generate-class-cache <dir> [<dir> …]` builds a class-loader cache at build time, and `get_classes()` reads it on any host, WordPress VIP included. Discovery runs as before when there's no prebuilt cache. Uses the same command, file and format as 2.0.0, so the build step carries over.
 
 ## [1.2.0] - 2025-03-20
 ### Changed
